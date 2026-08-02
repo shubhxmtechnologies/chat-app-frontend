@@ -4,7 +4,7 @@ import ReactDOM from "react-dom/client";
 import AppRoutes from "./routes/AppRoutes";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
-
+import { PresenceProvider } from "./context/PresenceContext";
 import "./index.css";
 
 ReactDOM.createRoot(
@@ -14,7 +14,9 @@ ReactDOM.createRoot(
     <ThemeProvider>
 
       <AuthProvider>
-        <AppRoutes />
+        <PresenceProvider>
+          <AppRoutes />
+        </PresenceProvider>
       </AuthProvider>
     </ThemeProvider>
 

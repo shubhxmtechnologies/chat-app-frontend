@@ -37,6 +37,9 @@ export const register = async (
             );
         }
 
+        console.log(error);
+        
+
         throw error;
     }
 };

@@ -35,8 +35,9 @@ interface User {
     username: string;
     email: string;
     avatarUrl: string | null;
+    bio?: string | null;
+    usernameLocked?: boolean;
 }
-
 interface AuthState {
     status: AuthStatus;
     accessToken: string | null;
@@ -60,6 +61,7 @@ interface AuthContextValue extends AuthState {
         data: RegisterInput
     ) => Promise<void>;
     logout: () => Promise<void>;
+    updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext =
@@ -184,12 +186,20 @@ export const AuthProvider = ({
         }
     };
 
+    const updateUser = (updates: Partial<User>) => {
+        setAuth((prev) => ({
+            ...prev,
+            user: prev.user ? { ...prev.user, ...updates } : null,
+        }));
+    };
+
     const value = useMemo(
         () => ({
             ...auth,
             login,
             register,
             logout,
+            updateUser,
         }),
         [auth]
     );

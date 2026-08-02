@@ -3,7 +3,7 @@ import { useEffect, type Dispatch, type SetStateAction } from "react";
 import { socket } from "../socket/socketClient";
 
 import type { Message } from "../types/message.types";
-
+import { sendMediaMessage } from "../api/message.api";
 interface Props {
     chatId: string;
 
@@ -68,20 +68,78 @@ export const useChatSocket = ({
                  */
                 return [...previous, message];
             });
+            if (message.sender !== currentUserId) {
+                socket.emit("mark_seen", chatId);
+            }
         };
+        const handleMessageSeen = ({
+            chatId: eventChatId,
+            messageIds,
+            seenAt,
+        }: {
+            chatId: string;
+            messageIds: string[];
+            seenAt: string;
+        }) => {
+            if (eventChatId !== chatId) return;
+
+            setMessages((previous) =>
+                previous.map((m) =>
+                    messageIds.includes(m._id)
+                        ? { ...m, status: "seen", seenAt }
+                        : m
+                )
+            );
+        };
+
+        const handleMessageDelivered = ({
+            messageId,
+            deliveredAt,
+        }: {
+            messageId: string;
+            deliveredAt: string;
+        }) => {
+            setMessages((previous) =>
+                previous.map((m) =>
+                    m._id === messageId && m.status !== "seen"
+                        ? { ...m, status: "delivered", deliveredAt }
+                        : m
+                )
+            );
+        };
+
 
         socket.on(
             "receive_message",
             handleReceive
         );
 
+        socket.on(
+            "message_seen",
+            handleMessageSeen
+        );
+
+        socket.on(
+            "message_delivered",
+            handleMessageDelivered
+        );
+
+
         return () => {
             socket.off(
                 "receive_message",
                 handleReceive
             );
+            socket.off(
+                "message_seen",
+                handleMessageSeen
+            );
+            socket.off(
+                "message_delivered",
+                handleMessageDelivered
+            );
         };
-    }, [chatId, setMessages]);
+    }, [chatId, currentUserId, setMessages]);
 
     const sendMessage = (
         text: string,
@@ -153,7 +211,7 @@ export const useChatSocket = ({
             );
         }, 30000);
 
-        
+
         socket.emit(
             "send_message",
             {
@@ -203,7 +261,50 @@ export const useChatSocket = ({
         );
     };
 
+    const sendMedia = async (file: File, previewUrl: string, clientMessageId: string, messageType: "image" | "sticker" | "voice" = "image") => {
+        const optimistic: Message = {
+            _id: clientMessageId,
+            chat: chatId,
+            sender: currentUserId,
+            messageType,
+            text: null,
+            mediaUrl: previewUrl,
+            status: "sending",
+            clientMessageId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isEdited: false,
+            editedAt: null,
+            isDeletedForEveryone: false,
+            deletedAt: null,
+        };
+
+        setMessages((prev) => {
+            if (prev.some((m) => m.clientMessageId === clientMessageId)) return prev;
+            return [...prev, optimistic];
+        });
+
+        try {
+            const response = await sendMediaMessage(chatId, messageType, file, clientMessageId);
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.clientMessageId === clientMessageId ? response.message : m
+                )
+            );
+        } catch (error) {
+            console.error("Media send failed:", error);
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.clientMessageId === clientMessageId
+                        ? { ...m, status: "failed" }
+                        : m
+                )
+            );
+        }
+    };
+
     return {
         sendMessage,
+        sendMedia,
     };
 };

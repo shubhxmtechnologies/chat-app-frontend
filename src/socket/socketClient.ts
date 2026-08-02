@@ -2,8 +2,11 @@ import { io, Socket } from "socket.io-client";
 
 import { envConfig } from "../config/env";
 
+// Strip the /api suffix — Socket.IO interprets URL paths as namespaces.
+const SOCKET_URL = envConfig.API_URL.replace(/\/api\/?$/, "");
+
 export const socket: Socket = io(
-    envConfig.API_URL,
+    SOCKET_URL,
     {
         autoConnect: false,
 

@@ -12,12 +12,16 @@ import {
 } from "../api/chat.api";
 
 import { useAuth } from "../context/AuthContext";
-
+import { usePresence } from "../context/PresenceContext";
+import { getRelativeTime } from "../utils/time.util";
+import { socket } from "../socket/socketClient";
 import type {
     Chat,
 } from "../types/chat.types";
+import type { Message } from "../types/message.types"
 
 const ChatList = () => {
+    const { isOnline, getLastSeen } = usePresence();
     const navigate =
         useNavigate();
 
@@ -60,6 +64,51 @@ const ChatList = () => {
         void loadChats();
     }, []);
 
+    useEffect(() => {
+        const handleReceiveMessage = (message: Message) => {
+            setChats((prev) => {
+                const idx = prev.findIndex((c) => c._id === message.chat);
+                if (idx === -1) return prev;
+
+                const chat = prev[idx];
+                const updatedChat = {
+                    ...chat,
+                    lastMessage: message as any,
+                    unreadCount:
+                        message.sender !== user?.id
+                            ? chat.unreadCount + 1
+                            : chat.unreadCount,
+                };
+
+                const next = [...prev];
+                next.splice(idx, 1);
+                next.unshift(updatedChat);
+
+                return next;
+            });
+        };
+
+        const handleMessageSeen = ({
+            chatId,
+        }: {
+            chatId: string;
+        }) => {
+            setChats((prev) =>
+                prev.map((c) =>
+                    c._id === chatId ? { ...c, unreadCount: 0 } : c
+                )
+            );
+        };
+
+        socket.on("receive_message", handleReceiveMessage);
+        socket.on("message_seen", handleMessageSeen);
+
+        return () => {
+            socket.off("receive_message", handleReceiveMessage);
+            socket.off("message_seen", handleMessageSeen);
+        };
+    }, [user?.id]);
+
     const getPreview = (
         chat: Chat
     ) => {
@@ -99,15 +148,18 @@ const ChatList = () => {
     };
 
     if (loading) {
-        return <p>Loading...</p>;
+        return <p>Loading in chatlist...</p>;
     }
 
     if (error) {
-        return <p>{error}</p>;
+        return <p>{error} in chatlist</p>;
     }
 
     return (
         <main>
+            <div style={{ textAlign: "center", padding: "8px", fontSize: "12px", color: "gray" }}>
+                Chat List
+            </div>
             {chats.map((chat) => {
                 const otherUser =
                     chat.participants.find(
@@ -161,6 +213,12 @@ const ChatList = () => {
                                     otherUser.username
                                 }
                             </h3>
+
+                            <p style={{ fontSize: "12px", color: isOnline(otherUser._id) ? "#16a34a" : "gray" }}>
+                                {isOnline(otherUser._id)
+                                    ? "Online"
+                                    : getRelativeTime(getLastSeen(otherUser._id, otherUser.lastSeenAt))}
+                            </p>
 
                             <p>
                                 {getPreview(

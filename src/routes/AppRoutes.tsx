@@ -11,7 +11,7 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import ChatList from "../pages/ChatList";
 import ChatView from "../pages/ChatView";
-
+import Profile from "../pages/Profile";
 const AppRoutes = () => {
     return (
         <BrowserRouter>
@@ -37,11 +37,10 @@ const AppRoutes = () => {
                     path="/profile"
                     element={
                         <ProtectedRoute>
-                            {/* <Profile /> */}
-                            <div>profile</div>
+                            <Profile />
                         </ProtectedRoute>
                     }
-                />
+            />
 
                 {/* 404 */}
 
