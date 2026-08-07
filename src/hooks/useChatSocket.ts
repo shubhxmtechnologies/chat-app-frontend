@@ -30,6 +30,12 @@ export const useChatSocket = ({
             }
 
             setMessages((previous) => {
+                if (message.sender !== currentUserId) {
+                    try {
+                        const audio = new Audio("/notification.wav");
+                        audio.play().catch(() => {});
+                    } catch (e) {}
+                }
                 /*
                  * Already have this real message?
                  */
@@ -108,6 +114,28 @@ export const useChatSocket = ({
             );
         };
 
+        const handleMessageEdited = (editedMessage: Message) => {
+            setMessages((previous) =>
+                previous.map((m) =>
+                    m._id === editedMessage._id ? editedMessage : m
+                )
+            );
+        };
+
+        const handleMessageDeletedForEveryone = ({ messageId }: { messageId: string }) => {
+            try {
+                setMessages((previous) =>
+                    previous.map((m) =>
+                        m._id === messageId
+                            ? { ...m, isDeletedForEveryone: true, text: null, mediaUrl: null }
+                            : m
+                    )
+                );
+            } catch (error) {
+                console.error("Failed to process deleted message:", error);
+            }
+        };
+
 
         socket.on(
             "receive_message",
@@ -124,8 +152,19 @@ export const useChatSocket = ({
             handleMessageDelivered
         );
 
+        socket.on(
+            "message_edited",
+            handleMessageEdited
+        );
+
+        socket.on(
+            "message_deleted_for_everyone",
+            handleMessageDeletedForEveryone
+        );
+
 
         return () => {
+            socket.emit("leave_chat", chatId);
             socket.off(
                 "receive_message",
                 handleReceive
@@ -137,6 +176,14 @@ export const useChatSocket = ({
             socket.off(
                 "message_delivered",
                 handleMessageDelivered
+            );
+            socket.off(
+                "message_edited",
+                handleMessageEdited
+            );
+            socket.off(
+                "message_deleted_for_everyone",
+                handleMessageDeletedForEveryone
             );
         };
     }, [chatId, currentUserId, setMessages]);
@@ -188,7 +235,11 @@ export const useChatSocket = ({
             );
 
             if (alreadyExists) {
-                return previous;
+                return previous.map((m) =>
+                    m.clientMessageId === clientMessageId
+                        ? { ...m, status: "sending" }
+                        : m
+                );
             }
 
             return [
@@ -209,7 +260,7 @@ export const useChatSocket = ({
                         : message
                 )
             );
-        }, 30000);
+        }, 10000);
 
 
         socket.emit(
@@ -231,10 +282,10 @@ export const useChatSocket = ({
                 if (!response.success) {
                     clearTimeout(timeout);
                     setMessages((previous) =>
-                        previous.filter(
-                            (m) =>
-                                m.clientMessageId !==
-                                clientMessageId
+                        previous.map((m) =>
+                            m.clientMessageId === clientMessageId
+                                ? { ...m, status: "failed" }
+                                : m
                         )
                     );
 
@@ -303,8 +354,32 @@ export const useChatSocket = ({
         }
     };
 
+    const retryMessage = (failedMessage: Message) => {
+        if (!failedMessage.clientMessageId) return;
+
+        if (failedMessage.messageType === "text" && failedMessage.text) {
+            sendMessage(failedMessage.text, failedMessage.clientMessageId);
+        } else if (
+            failedMessage.mediaUrl &&
+            (failedMessage.messageType === "image" ||
+             failedMessage.messageType === "sticker" ||
+             failedMessage.messageType === "voice")
+        ) {
+            fetch(failedMessage.mediaUrl)
+                .then((res) => res.blob())
+                .then((blob) => {
+                    const ext = failedMessage.messageType === "voice" ? "webm" : "png";
+                    const mime = failedMessage.messageType === "voice" ? "audio/webm" : blob.type;
+                    const file = new File([blob], `retry.${ext}`, { type: mime });
+                    sendMedia(file, failedMessage.mediaUrl!, failedMessage.clientMessageId!, failedMessage.messageType as "image" | "sticker" | "voice");
+                })
+                .catch((err) => console.error("Retry failed:", err));
+        }
+    };
+
     return {
         sendMessage,
         sendMedia,
+        retryMessage,
     };
 };

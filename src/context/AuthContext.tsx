@@ -9,6 +9,7 @@ import {
 
 import {
     setTokenRefreshHandler,
+    setTokenRefreshFailHandler,
 } from "../api/axiosClient";
 
 import {
@@ -30,13 +31,17 @@ type AuthStatus =
     | "authenticated"
     | "unauthenticated";
 
-interface User {
+export interface User {
     id: string;
     username: string;
     email: string;
     avatarUrl: string | null;
     bio?: string | null;
     usernameLocked?: boolean;
+    name?: {
+        firstName: string;
+        lastName?: string | null;
+    } | null;
 }
 interface AuthState {
     status: AuthStatus;
@@ -44,10 +49,13 @@ interface AuthState {
     user: User | null;
 }
 
-interface RegisterInput {
+export interface RegisterInput {
     username: string;
     email: string;
     password: string;
+    firstName: string;
+    lastName?: string | null;
+    bio?: string | null;
 }
 
 interface LoginInput {
@@ -108,6 +116,24 @@ export const AuthProvider = ({
         auth.status,
         auth.accessToken,
     ]);
+
+    useEffect(() => {
+        setTokenRefreshHandler((newToken: string) => {
+            setAuth((prev) => ({
+                ...prev,
+                accessToken: newToken,
+            }));
+        });
+
+        setTokenRefreshFailHandler(() => {
+            disconnectSocket();
+            setAuth({
+                status: "unauthenticated",
+                accessToken: null,
+                user: null,
+            });
+        });
+    }, []);
     /*
      * Silent refresh on first load.
      */

@@ -9,6 +9,11 @@ export interface ChatUser {
     username: string;
     avatarUrl: string | null;
     lastSeenAt: string | null;
+    bio?: string | null;
+    name?: {
+        firstName: string;
+        lastName?: string | null;
+    };
 }
 
 export interface LastMessage {

@@ -1,222 +1,960 @@
-import { useState, useRef } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { uploadAvatar, updateBio, updateUsername } from "../api/user.api";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    ArrowLeft,
+    Mail,
+    Lock,
+    Eye,
+    EyeOff,
+    Camera,
+    Upload,
+    Trash2,
+    Copy,
+    Check,
+    CheckCircle2,
+    Shield,
+    LogOut,
+    Maximize2,
+    X,
+    UserCheck,
+    Loader2,
+} from "lucide-react";
+
+import { useAuth } from "@/context/AuthContext";
+import {
+    uploadAvatar,
+    deleteAvatar,
+    updateName,
+    updateEmail,
+    changePassword,
+    updateBio,
+    getBlockedUsers,
+    unblockUser,
+    type SearchUser,
+} from "@/api/user.api";
+import {
+    validateFirstName,
+    validateLastName,
+    validateEmail,
+    validatePassword,
+    validateBio,
+} from "@/utils/validators";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+
+const DEFAULT_AVATAR = "https://cutiedp.com/wp-content/uploads/2025/08/no-dp-image-4.webp";
+
 const Profile = () => {
     const { user, logout, updateUser } = useAuth();
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Placeholders for future API hooks
-    const [bio, setBio] = useState("");
-    const [username, setUsername] = useState(user?.username || "");
-    const [isEditingBio, setIsEditingBio] = useState(false);
-    const [isEditingUsername, setIsEditingUsername] = useState(false);
+    // Active Section Tab
+    const [activeTab, setActiveTab] = useState<"general" | "security" | "blocked">("general");
 
+    // Copy handle feedback
+    const [copiedHandle, setCopiedHandle] = useState(false);
 
+    // Fullscreen DP Lightbox
+    const [showFullAvatar, setShowFullAvatar] = useState(false);
+
+    // Avatar state
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [deletingAvatar, setDeletingAvatar] = useState(false);
+    const [avatarError, setAvatarError] = useState("");
+    const [avatarSuccess, setAvatarSuccess] = useState("");
+
+    // Name state & validation
+    const [firstName, setFirstName] = useState(user?.name?.firstName || "");
+    const [lastName, setLastName] = useState(user?.name?.lastName || "");
+    const [savingName, setSavingName] = useState(false);
+    const [nameErrors, setNameErrors] = useState<{ firstName?: string; lastName?: string }>({});
+    const [nameSuccess, setNameSuccess] = useState("");
+
+    // Bio state & validation
+    const [bio, setBio] = useState(user?.bio || "");
     const [savingBio, setSavingBio] = useState(false);
     const [bioError, setBioError] = useState("");
-    const [uploading, setUploading] = useState(false);
-    const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(null);
-    const [avatarError, setAvatarError] = useState("");
+    const [bioSuccess, setBioSuccess] = useState("");
 
-    const [savingUsername, setSavingUsername] = useState(false);
-    const [usernameError, setUsernameError] = useState("");
-    const [confirmingUsername, setConfirmingUsername] = useState(false);
-    // AuthContext doesn't have usernameLocked or bio yet, assuming false/empty for shell
-    const usernameLocked = false;
+    // Email state & validation
+    const [email, setEmail] = useState(user?.email || "");
+    const [savingEmail, setSavingEmail] = useState(false);
+    const [emailError, setEmailError] = useState("");
+    const [emailSuccess, setEmailSuccess] = useState("");
 
-    const handleSaveUsername = async () => {
+    // Password change state & validation
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmNewPassword, setConfirmNewPassword] = useState("");
+    const [showCurrentPass, setShowCurrentPass] = useState(false);
+    const [showNewPass, setShowNewPass] = useState(false);
+    const [savingPassword, setSavingPassword] = useState(false);
+    const [passwordErrors, setPasswordErrors] = useState<{
+        current?: string;
+        new?: string;
+        confirm?: string;
+    }>({});
+    const [passwordSuccess, setPasswordSuccess] = useState("");
+
+    // Blocked users
+    const [blockedUsers, setBlockedUsers] = useState<SearchUser[]>([]);
+    const [loadingBlocked, setLoadingBlocked] = useState(false);
+    const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
+
+    // Sync state when user context updates
+    useEffect(() => {
+        if (user) {
+            setFirstName(user.name?.firstName || "");
+            setLastName(user.name?.lastName || "");
+            setBio(user.bio || "");
+            setEmail(user.email || "");
+        }
+    }, [user]);
+
+    // Fetch blocked users when switching to blocked tab
+    useEffect(() => {
+        if (activeTab === "blocked") {
+            void loadBlockedUsers();
+        }
+    }, [activeTab]);
+
+    const loadBlockedUsers = async () => {
         try {
-            setUsernameError("");
-            setSavingUsername(true);
-            const updatedUsername = await updateUsername(username);
-            updateUser({ username: updatedUsername, usernameLocked: true });
-            setIsEditingUsername(false);
-            setConfirmingUsername(false);
-        } catch (error) {
-            console.error("Failed to update username:", error);
-            setUsernameError(error instanceof Error ? error.message : "Failed to save username");
+            setLoadingBlocked(true);
+            const list = await getBlockedUsers();
+            setBlockedUsers(list);
+        } catch (err) {
+            console.error("Failed to load blocked users:", err);
         } finally {
-            setSavingUsername(false);
+            setLoadingBlocked(false);
         }
     };
 
-    const handleSaveBio = async () => {
+    const handleUnblock = async (targetId: string) => {
         try {
-            setBioError("");
+            setUnblockingUserId(targetId);
+            await unblockUser(targetId);
+            setBlockedUsers((prev) => prev.filter((u) => u._id !== targetId));
+        } catch (err) {
+            console.error("Failed to unblock user:", err);
+        } finally {
+            setUnblockingUserId(null);
+        }
+    };
+
+    // Copy handle to clipboard
+    const handleCopyHandle = async () => {
+        if (!user?.username) return;
+        try {
+            await navigator.clipboard.writeText(`@${user.username}`);
+            setCopiedHandle(true);
+            setTimeout(() => setCopiedHandle(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy handle:", err);
+        }
+    };
+
+    // Avatar upload handler
+    const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setAvatarError("");
+        setAvatarSuccess("");
+
+        if (!file.type.startsWith("image/")) {
+            setAvatarError("Please select a valid image file (JPG, PNG, WebP).");
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            setAvatarError("Avatar image must be smaller than 5MB.");
+            return;
+        }
+
+        try {
+            setUploadingAvatar(true);
+            const newAvatarUrl = await uploadAvatar(file);
+            updateUser({ avatarUrl: newAvatarUrl });
+            setAvatarSuccess("Profile photo updated successfully!");
+            setTimeout(() => setAvatarSuccess(""), 3000);
+        } catch (err) {
+            setAvatarError(err instanceof Error ? err.message : "Failed to upload avatar");
+        } finally {
+            setUploadingAvatar(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    // Avatar delete handler (resets to default)
+    const handleDeleteAvatar = async () => {
+        setAvatarError("");
+        setAvatarSuccess("");
+        try {
+            setDeletingAvatar(true);
+            const defaultUrl = await deleteAvatar();
+            updateUser({ avatarUrl: defaultUrl });
+            setAvatarSuccess("Profile photo reset to default!");
+            setTimeout(() => setAvatarSuccess(""), 3000);
+        } catch (err) {
+            setAvatarError(err instanceof Error ? err.message : "Failed to reset avatar");
+        } finally {
+            setDeletingAvatar(false);
+        }
+    };
+
+    // Save Name handler
+    const handleSaveName = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setNameSuccess("");
+
+        const fnErr = validateFirstName(firstName);
+        const lnErr = validateLastName(lastName);
+
+        if (fnErr || lnErr) {
+            setNameErrors({
+                ...(fnErr && { firstName: fnErr }),
+                ...(lnErr && { lastName: lnErr }),
+            });
+            return;
+        }
+
+        setNameErrors({});
+        try {
+            setSavingName(true);
+            const updated = await updateName(firstName.trim(), lastName.trim() || null);
+            updateUser({ name: updated });
+            setNameSuccess("Name updated successfully!");
+            setTimeout(() => setNameSuccess(""), 3000);
+        } catch (err) {
+            setNameErrors({
+                firstName: err instanceof Error ? err.message : "Failed to update name",
+            });
+        } finally {
+            setSavingName(false);
+        }
+    };
+
+    // Save Bio handler
+    const handleSaveBio = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setBioSuccess("");
+
+        const bErr = validateBio(bio);
+        if (bErr) {
+            setBioError(bErr);
+            return;
+        }
+
+        setBioError("");
+        try {
             setSavingBio(true);
-            const updatedBio = await updateBio(bio);
-            updateUser({ bio: updatedBio });
-            setIsEditingBio(false);
-        } catch (error) {
-            console.error("Failed to update bio:", error);
-            setBioError(error instanceof Error ? error.message : "Failed to save bio");
+            const updated = await updateBio(bio.trim() || null);
+            updateUser({ bio: updated });
+            setBioSuccess("Bio updated successfully!");
+            setTimeout(() => setBioSuccess(""), 3000);
+        } catch (err) {
+            setBioError(err instanceof Error ? err.message : "Failed to update bio");
         } finally {
             setSavingBio(false);
         }
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Save Email handler
+    const handleSaveEmail = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setEmailSuccess("");
+
+        const eErr = validateEmail(email);
+        if (eErr) {
+            setEmailError(eErr);
+            return;
+        }
+
+        setEmailError("");
         try {
-            const file = e.target.files?.[0];
-            if (!file) return;
-
-            setAvatarError("");
-
-            const validTypes = ["image/jpeg", "image/png", "image/webp"];
-            if (!validTypes.includes(file.type)) {
-                setAvatarError("Only JPEG, PNG, and WebP are allowed.");
-                return;
-            }
-
-            if (file.size > 5 * 1024 * 1024) {
-                setAvatarError("File size cannot exceed 5MB.");
-                return;
-            }
-
-            const objectUrl = URL.createObjectURL(file);
-            setLocalAvatarPreview(objectUrl);
-            setUploading(true);
-
-            try {
-                const newAvatarUrl = await uploadAvatar(file);
-                updateUser({ avatarUrl: newAvatarUrl });
-            } catch (error) {
-                console.error("Avatar upload failed:", error);
-                setAvatarError(error instanceof Error ? error.message : "Upload failed");
-            } finally {
-                setUploading(false);
-                URL.revokeObjectURL(objectUrl);
-                setLocalAvatarPreview(null);
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                }
-            }
-        } catch (error) {
-            console.error("File selection failed:", error);
+            setSavingEmail(true);
+            const updated = await updateEmail(email.trim().toLowerCase());
+            updateUser({ email: updated });
+            setEmailSuccess("Email updated successfully!");
+            setTimeout(() => setEmailSuccess(""), 3000);
+        } catch (err) {
+            setEmailError(err instanceof Error ? err.message : "Failed to update email");
+        } finally {
+            setSavingEmail(false);
         }
     };
 
-    const handleLogout = async () => {
+    // Change Password handler
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordSuccess("");
+
+        const curErr = validatePassword(currentPassword);
+        const newErr = validatePassword(newPassword);
+        let matchErr: string | null = null;
+        if (newPassword !== confirmNewPassword) {
+            matchErr = "New passwords do not match";
+        }
+
+        if (curErr || newErr || matchErr) {
+            setPasswordErrors({
+                ...(curErr && { current: curErr }),
+                ...(newErr && { new: newErr }),
+                ...(matchErr && { confirm: matchErr }),
+            });
+            return;
+        }
+
+        setPasswordErrors({});
         try {
-            await logout();
-            navigate("/login");
-        } catch (error) {
-            console.error("Logout failed:", error);
+            setSavingPassword(true);
+            await changePassword(currentPassword, newPassword);
+            setPasswordSuccess("Password changed successfully!");
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmNewPassword("");
+            setTimeout(() => setPasswordSuccess(""), 3500);
+        } catch (err) {
+            setPasswordErrors({
+                current: err instanceof Error ? err.message : "Failed to change password",
+            });
+        } finally {
+            setSavingPassword(false);
         }
     };
 
     if (!user) return null;
 
+    const currentAvatarUrl = user.avatarUrl || DEFAULT_AVATAR;
+
     return (
-        <main style={{ padding: "20px", maxWidth: "400px", margin: "0 auto" }}>
-            <h1>Profile</h1>
+        <div className="min-h-screen w-full bg-background bg-ambient-glow text-foreground flex flex-col items-center">
+            {/* Top Navigation Bar */}
+            <header className="w-full border-b border-border/80 bg-card/70 backdrop-blur-md sticky top-0 z-20">
+                <div className="max-w-[760px] mx-auto px-4 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate("/")}
+                            className="size-9 text-muted-foreground hover:text-foreground"
+                            aria-label="Back to conversations"
+                        >
+                            <ArrowLeft className="size-4" />
+                        </Button>
+                        <div>
+                            <h1 className="text-[17px] font-bold leading-none tracking-tight text-foreground">
+                                Profile Settings
+                            </h1>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
+                                Manage identity, security & preferences
+                            </p>
+                        </div>
+                    </div>
 
-            <div style={{ marginBottom: "20px" }}>
-                <input
-                    type="file"
-                    accept="image/jpeg, image/png, image/webp"
-                    ref={fileInputRef}
-                    style={{ display: "none" }}
-                    onChange={handleFileChange}
-                />
-                <div style={{ position: "relative", display: "inline-block" }}>
-                    <img
-                        src={localAvatarPreview || user.avatarUrl || "/default-avatar.png"}
-                        alt="Avatar"
-                        width={100}
-                        height={100}
-                        style={{
-                            borderRadius: "50%",
-                            cursor: uploading ? "not-allowed" : "pointer",
-                            objectFit: "cover",
-                            opacity: uploading ? 0.5 : 1
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                            await logout();
+                            navigate("/login");
                         }}
-                        onClick={() => !uploading && fileInputRef.current?.click()}
-                        title="Change Avatar"
-                    />
-                    {uploading && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", fontSize: "12px", pointerEvents: "none" }}>Uploading...</div>}
+                        className="text-xs text-muted-foreground hover:text-destructive gap-1.5"
+                    >
+                        <LogOut className="size-3.5" />
+                        <span className="hidden sm:inline">Sign Out</span>
+                    </Button>
                 </div>
-                {avatarError && <p style={{ color: "red", fontSize: "12px", marginTop: "4px" }}>{avatarError}</p>}
-            </div>
+            </header>
 
-            <div style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", fontWeight: "bold" }}>Username</label>
-                {isEditingUsername ? (
-                    <div>
+            {/* Fullscreen Avatar Lightbox Modal */}
+            <AnimatePresence>
+                {showFullAvatar && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowFullAvatar(false)}
+                        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0.9 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="relative max-w-[420px] w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
+                        >
+                            <img
+                                src={currentAvatarUrl}
+                                alt={user.username}
+                                className="w-full h-auto object-cover max-h-[75vh]"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowFullAvatar(false)}
+                                className="absolute top-3 right-3 size-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Main Content Area */}
+            <main className="w-full max-w-[760px] px-4 py-8 flex flex-col gap-6">
+                {/* Hero Profile Showcase Card */}
+                <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                    {/* Avatar with click-to-zoom + upload overlay */}
+                    <div className="relative group shrink-0">
                         <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            disabled={savingUsername || confirmingUsername}
+                            type="file"
+                            ref={fileInputRef}
+                            accept="image/*"
+                            onChange={handleAvatarFileChange}
+                            className="hidden"
                         />
-                        {usernameError && <p style={{ color: "red", fontSize: "12px", margin: "4px 0" }}>{usernameError}</p>}
 
-                        {confirmingUsername ? (
-                            <div style={{ marginTop: "8px", padding: "8px", backgroundColor: "#fffbeb", border: "1px solid #fcd34d", borderRadius: "4px" }}>
-                                <p style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#92400e" }}>
-                                    Warning: You can only change your username once. Are you sure?
-                                </p>
-                                <button onClick={() => setConfirmingUsername(false)} disabled={savingUsername}>Cancel</button>
-                                <button onClick={handleSaveUsername} disabled={savingUsername} style={{ marginLeft: "8px", backgroundColor: "#ef4444", color: "white", border: "none", padding: "4px 8px", cursor: "pointer" }}>
-                                    {savingUsername ? "Saving..." : "Yes, Change It"}
+                        <div className="relative size-24 sm:size-28 rounded-full overflow-hidden border-2 border-border shadow-md ring-4 ring-primary/10">
+                            <img
+                                src={currentAvatarUrl}
+                                alt={user.username}
+                                className="size-full object-cover"
+                            />
+
+                            {/* Hover overlay with zoom and upload icons */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFullAvatar(true)}
+                                    className="size-8 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+                                    title="View full picture"
+                                >
+                                    <Maximize2 className="size-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploadingAvatar || deletingAvatar}
+                                    className="size-8 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
+                                    title="Upload new photo"
+                                >
+                                    <Camera className="size-4" />
                                 </button>
                             </div>
+
+                            {uploadingAvatar && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-semibold">
+                                    <Loader2 className="size-5 animate-spin" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Profile Header Details */}
+                    <div className="flex-1 text-center sm:text-left space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <h2 className="text-xl sm:text-2xl font-extrabold text-foreground">
+                                {user.name?.firstName
+                                    ? `${user.name.firstName} ${user.name.lastName || ""}`.trim()
+                                    : `@${user.username}`}
+                            </h2>
+                            {/* Verified locked handle pill with copy button */}
+                            <button
+                                type="button"
+                                onClick={handleCopyHandle}
+                                className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 hover:bg-secondary border border-border text-xs font-semibold text-muted-foreground hover:text-foreground transition-all mx-auto sm:mx-0 w-fit"
+                                title="Click to copy handle"
+                            >
+                                <span>@{user.username}</span>
+                                {copiedHandle ? (
+                                    <Check className="size-3 text-emerald-500 stroke-3" />
+                                ) : (
+                                    <Copy className="size-3 opacity-60" />
+                                )}
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
+                            {user.bio || "No bio added yet. Add a short bio to introduce yourself to your contacts."}
+                        </p>
+
+                        {/* Avatar Action Buttons */}
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={uploadingAvatar}
+                                onClick={() => fileInputRef.current?.click()}
+                                className="h-8 text-xs font-medium gap-1.5 rounded-xl"
+                            >
+                                <Upload className="size-3" />
+                                <span>Change Photo</span>
+                            </Button>
+
+                            {user.avatarUrl && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={deletingAvatar}
+                                    onClick={handleDeleteAvatar}
+                                    className="h-8 text-xs font-medium text-muted-foreground hover:text-destructive gap-1.5 rounded-xl"
+                                >
+                                    <Trash2 className="size-3" />
+                                    <span>Reset to Default</span>
+                                </Button>
+                            )}
+                        </div>
+
+                        {avatarError && (
+                            <p className="text-xs text-destructive font-medium pt-1">
+                                {avatarError}
+                            </p>
+                        )}
+                        {avatarSuccess && (
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium pt-1">
+                                {avatarSuccess}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Section Navigation Tabs */}
+                <div className="flex items-center gap-2 p-1 rounded-2xl bg-card border border-border/80 shadow-2xs">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("general")}
+                        className={cn(
+                            "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                            activeTab === "general"
+                                ? "bg-gradient-chat-sender text-white shadow-xs"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        General Info
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("security")}
+                        className={cn(
+                            "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                            activeTab === "security"
+                                ? "bg-gradient-chat-sender text-white shadow-xs"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        Security & Email
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("blocked")}
+                        className={cn(
+                            "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                            activeTab === "blocked"
+                                ? "bg-gradient-chat-sender text-white shadow-xs"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        Blocked Users
+                    </button>
+                </div>
+
+                {/* TAB 1: GENERAL INFO (Name & Bio) */}
+                {activeTab === "general" && (
+                    <div className="space-y-6">
+                        {/* Display Name Card */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-bold text-foreground">
+                                        Display Name
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Update your public first and last name.
+                                    </p>
+                                </div>
+                                <span className="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full font-medium">
+                                    1–50 characters
+                                </span>
+                            </div>
+
+                            <form onSubmit={handleSaveName} className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="prof-firstname" className="text-xs font-semibold">
+                                            First Name <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Input
+                                            id="prof-firstname"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            placeholder="Alex"
+                                            className="h-11 rounded-xl bg-card"
+                                        />
+                                        {nameErrors.firstName && (
+                                            <p className="text-xs text-destructive font-medium">
+                                                {nameErrors.firstName}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="prof-lastname" className="text-xs font-semibold">
+                                                Last Name
+                                            </Label>
+                                            <span className="text-[10px] text-muted-foreground">Optional</span>
+                                        </div>
+                                        <Input
+                                            id="prof-lastname"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            placeholder="Smith"
+                                            className="h-11 rounded-xl bg-card"
+                                        />
+                                        {nameErrors.lastName && (
+                                            <p className="text-xs text-destructive font-medium">
+                                                {nameErrors.lastName}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2">
+                                    {nameSuccess ? (
+                                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {nameSuccess}
+                                        </span>
+                                    ) : <div />}
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        disabled={savingName}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                    >
+                                        {savingName ? "Saving…" : "Save Name"}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Bio Card */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-bold text-foreground">
+                                        About / Bio
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        A brief introduction shown when contacts view your profile.
+                                    </p>
+                                </div>
+                                <span className="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full font-medium">
+                                    {bio.length} / 200
+                                </span>
+                            </div>
+
+                            <form onSubmit={handleSaveBio} className="space-y-4">
+                                <textarea
+                                    rows={3}
+                                    value={bio}
+                                    maxLength={200}
+                                    onChange={(e) => setBio(e.target.value)}
+                                    placeholder="Write something about yourself..."
+                                    className="w-full rounded-2xl border border-border bg-card p-3 text-sm placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 outline-none resize-none transition-all"
+                                />
+
+                                {bioError && (
+                                    <p className="text-xs text-destructive font-medium">
+                                        {bioError}
+                                    </p>
+                                )}
+
+                                <div className="flex items-center justify-between pt-1">
+                                    {bioSuccess ? (
+                                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {bioSuccess}
+                                        </span>
+                                    ) : <div />}
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        disabled={savingBio}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                    >
+                                        {savingBio ? "Saving…" : "Save Bio"}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Permanent Username Notice Card */}
+                        <div className="rounded-3xl border border-border/60 bg-secondary/40 p-5 flex items-start gap-3.5">
+                            <div className="size-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                                <Shield className="size-4" />
+                            </div>
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-bold text-foreground">
+                                    Username is permanent (@{user.username})
+                                </h4>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    To ensure message delivery integrity, user handles cannot be changed after registration.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* TAB 2: SECURITY & EMAIL */}
+                {activeTab === "security" && (
+                    <div className="space-y-6">
+                        {/* Email Address Update */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-base font-bold text-foreground">
+                                        Email Address
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Used for account login and notifications.
+                                    </p>
+                                </div>
+                                <span className="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full font-medium">
+                                    13–30 characters
+                                </span>
+                            </div>
+
+                            <form onSubmit={handleSaveEmail} className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="prof-email" className="text-xs font-semibold">
+                                        Email
+                                    </Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                                        <Input
+                                            id="prof-email"
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="alex@example.com"
+                                            className="pl-10 h-11 rounded-xl bg-card"
+                                        />
+                                    </div>
+                                    {emailError && (
+                                        <p className="text-xs text-destructive font-medium">
+                                            {emailError}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1">
+                                    {emailSuccess ? (
+                                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {emailSuccess}
+                                        </span>
+                                    ) : <div />}
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        disabled={savingEmail}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                    >
+                                        {savingEmail ? "Saving…" : "Update Email"}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Password Change */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                            <div>
+                                <h3 className="text-base font-bold text-foreground">
+                                    Change Password
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Ensure your account is protected with a strong 8–16 character password.
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleChangePassword} className="space-y-4">
+                                {/* Current Password */}
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="prof-currpass" className="text-xs font-semibold">
+                                        Current Password
+                                    </Label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                                        <Input
+                                            id="prof-currpass"
+                                            type={showCurrentPass ? "text" : "password"}
+                                            value={currentPassword}
+                                            onChange={(e) => setCurrentPassword(e.target.value)}
+                                            placeholder="Enter current password"
+                                            className="pl-10 pr-10 h-11 rounded-xl bg-card"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCurrentPass(!showCurrentPass)}
+                                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            {showCurrentPass ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                        </button>
+                                    </div>
+                                    {passwordErrors.current && (
+                                        <p className="text-xs text-destructive font-medium">
+                                            {passwordErrors.current}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* New Password */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="prof-newpass" className="text-xs font-semibold">
+                                            New Password
+                                        </Label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                                            <Input
+                                                id="prof-newpass"
+                                                type={showNewPass ? "text" : "password"}
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                placeholder="8–16 characters"
+                                                className="pl-10 pr-10 h-11 rounded-xl bg-card"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPass(!showNewPass)}
+                                                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            >
+                                                {showNewPass ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                            </button>
+                                        </div>
+                                        {passwordErrors.new && (
+                                            <p className="text-xs text-destructive font-medium">
+                                                {passwordErrors.new}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="prof-confnewpass" className="text-xs font-semibold">
+                                            Confirm New Password
+                                        </Label>
+                                        <div className="relative">
+                                            <CheckCircle2 className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                                            <Input
+                                                id="prof-confnewpass"
+                                                type={showNewPass ? "text" : "password"}
+                                                value={confirmNewPassword}
+                                                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                                placeholder="Re-enter new password"
+                                                className="pl-10 h-11 rounded-xl bg-card"
+                                            />
+                                        </div>
+                                        {passwordErrors.confirm && (
+                                            <p className="text-xs text-destructive font-medium">
+                                                {passwordErrors.confirm}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1">
+                                    {passwordSuccess ? (
+                                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                            {passwordSuccess}
+                                        </span>
+                                    ) : <div />}
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        disabled={savingPassword}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                    >
+                                        {savingPassword ? "Updating…" : "Change Password"}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* TAB 3: BLOCKED USERS */}
+                {activeTab === "blocked" && (
+                    <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                        <div>
+                            <h3 className="text-base font-bold text-foreground">
+                                Blocked Users
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                Contacts on your blocklist cannot send you messages or see your presence.
+                            </p>
+                        </div>
+
+                        {loadingBlocked ? (
+                            <div className="py-8 flex justify-center text-muted-foreground">
+                                <Loader2 className="size-6 animate-spin" />
+                            </div>
+                        ) : blockedUsers.length === 0 ? (
+                            <div className="py-12 text-center text-muted-foreground text-xs italic">
+                                You haven&apos;t blocked any contacts.
+                            </div>
                         ) : (
-                            <div style={{ marginTop: "8px" }}>
-                                <button onClick={() => setIsEditingUsername(false)}>Cancel</button>
-                                <button onClick={() => setConfirmingUsername(true)} style={{ marginLeft: "8px" }}>Save</button>
+                            <div className="space-y-2">
+                                {blockedUsers.map((bUser) => (
+                                    <div
+                                        key={bUser._id}
+                                        className="flex items-center justify-between p-3 rounded-2xl bg-secondary/50 border border-border/60"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <img
+                                                src={bUser.avatarUrl || DEFAULT_AVATAR}
+                                                alt={bUser.username}
+                                                className="size-10 rounded-full object-cover border border-border"
+                                            />
+                                            <div>
+                                                <h4 className="text-sm font-bold text-foreground">
+                                                    {bUser.name?.firstName
+                                                        ? `${bUser.name.firstName} ${bUser.name.lastName || ""}`.trim()
+                                                        : `@${bUser.username}`}
+                                                </h4>
+                                                <p className="text-xs text-muted-foreground">
+                                                    @{bUser.username}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={unblockingUserId === bUser._id}
+                                            onClick={() => handleUnblock(bUser._id)}
+                                            className="h-8 text-xs font-semibold gap-1.5 rounded-xl hover:text-emerald-500 hover:border-emerald-500/40"
+                                        >
+                                            {unblockingUserId === bUser._id ? (
+                                                <Loader2 className="size-3 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <UserCheck className="size-3.5" />
+                                                    <span>Unblock</span>
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
-                ) : (
-                    <div>
-                        <span>{user.username}</span>
-                        {!user.usernameLocked && (
-                            <button onClick={() => { setUsername(user.username); setIsEditingUsername(true); }} style={{ marginLeft: "10px" }}>
-                                Edit
-                            </button>
-                        )}
-                    </div>
                 )}
-            </div>
-
-            <div style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", fontWeight: "bold" }}>Bio</label>
-                {isEditingBio ? (
-                    <div>
-                        <textarea
-                            value={bio}
-                            onChange={(e) => setBio(e.target.value)}
-                            rows={3}
-                            maxLength={200}
-                            style={{ width: "100%", boxSizing: "border-box" }}
-                        />
-                        <div style={{ fontSize: "12px", color: bio.length >= 200 ? "red" : "gray", textAlign: "right", marginBottom: "8px" }}>
-                            {bio.length}/200
-                        </div>
-                        {bioError && <p style={{ color: "red", fontSize: "12px", margin: "4px 0" }}>{bioError}</p>}
-                        <button onClick={() => setIsEditingBio(false)} disabled={savingBio}>Cancel</button>
-                        <button onClick={handleSaveBio} disabled={savingBio} style={{ marginLeft: "8px" }}>
-                            {savingBio ? "Saving..." : "Save"}
-                        </button>
-                    </div>
-                ) : (
-                    <div>
-                        <p>{user.bio || "No bio set."}</p>
-                        <button onClick={() => { setBio(user.bio || ""); setIsEditingBio(true); }}>Edit</button>
-                    </div>
-                )}
-            </div>
-
-            <button
-                onClick={handleLogout}
-                style={{ backgroundColor: "#ef4444", color: "white", padding: "8px 16px", border: "none", cursor: "pointer" }}
-            >
-                Logout
-            </button>
-        </main>
+            </main>
+        </div>
     );
 };
 

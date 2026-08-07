@@ -44,25 +44,36 @@ export const ThemeProvider = ({
                 storedTheme === "dark"
             ) {
                 setTheme(storedTheme);
-                return;
+            } else {
+                const prefersDark =
+                    window.matchMedia(
+                        "(prefers-color-scheme: dark)"
+                    ).matches;
+
+                setTheme(
+                    prefersDark
+                        ? "dark"
+                        : "light"
+                );
             }
-
-            const prefersDark =
-                window.matchMedia(
-                    "(prefers-color-scheme: dark)"
-                ).matches;
-
-            setTheme(
-                prefersDark
-                    ? "dark"
-                    : "light"
-            );
         } catch (error) {
             console.error(
                 "Failed to load theme:",
                 error
             );
         }
+
+        // Listen for OS theme changes
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        const handleChange = (e: MediaQueryListEvent) => {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            // Only auto-switch if user hasn't manually set a preference
+            if (!stored) {
+                setTheme(e.matches ? "dark" : "light");
+            }
+        };
+        mediaQuery.addEventListener("change", handleChange);
+        return () => mediaQuery.removeEventListener("change", handleChange);
     }, []);
 
     /*

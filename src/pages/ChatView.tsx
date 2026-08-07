@@ -1,79 +1,167 @@
 import { useEffect, useState, useRef, useLayoutEffect } from "react";
-import { useParams } from "react-router-dom";
-import { getUserChats } from "../api/chat.api";
-import { getMessages } from "../api/message.api";
-import { useAuth } from "../context/AuthContext";
-import { useChatSocket } from "../hooks/useChatSocket";
-import { socket } from "../socket/socketClient";
-import { useTypingIndicator } from "../hooks/useTypingIndicator";
-import { usePresence } from "../context/PresenceContext";
-import { getRelativeTime } from "../utils/time.util";
-import type { Chat } from "../types/chat.types";
-import MessageBubble from "../components/MessageBubble";
-import MessageInput from "../components/MessageInput";
+import { useParams, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    ArrowLeft,
+    Loader2,
+    ArrowDown,
+    AlertCircle,
+    Sparkles,
+    UserX,
+    UserCheck,
+    Copy,
+    Check,
+    X,
+    Maximize2,
+    Info,
+} from "lucide-react";
 
-import type { Message } from "../types/message.types";
+import { blockUser, unblockUser } from "@/api/user.api";
+import { getUserChats } from "@/api/chat.api";
+import { getMessages } from "@/api/message.api";
+import { useAuth } from "@/context/AuthContext";
+import { useChatSocket } from "@/hooks/useChatSocket";
+import { socket } from "@/socket/socketClient";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { usePresence } from "@/context/PresenceContext";
+import { getRelativeTime } from "@/utils/time.util";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import MessageBubble from "@/components/MessageBubble";
+import MessageInput from "@/components/MessageInput";
+
+import type { Chat } from "@/types/chat.types";
+import type { Message } from "@/types/message.types";
+
+const DEFAULT_AVATAR = "https://cutiedp.com/wp-content/uploads/2025/08/no-dp-image-4.webp";
 
 const ChatView = () => {
     const { chatId } = useParams<{ chatId: string }>();
+    const navigate = useNavigate();
     const { user } = useAuth();
+    const { isOnline, getLastSeen } = usePresence();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [chat, setChat] = useState<Chat | null>(null);
-    const { handleTyping, stopTyping } = useTypingIndicator(chatId ?? "");
-    const { isOnline, getLastSeen } = usePresence();
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [loadingOlder, setLoadingOlder] = useState(false);
     const [showNewMessagePill, setShowNewMessagePill] = useState(false);
+    const [isBlocking, setIsBlocking] = useState(false);
+
+    // Profile Details & Full DP Lightbox Modals
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [showFullDp, setShowFullDp] = useState(false);
+    const [copiedHandle, setCopiedHandle] = useState(false);
+
+    const { handleTyping, stopTyping } = useTypingIndicator(chatId ?? "");
+
     const containerRef = useRef<HTMLDivElement>(null);
     const previousScrollHeightRef = useRef<number>(0);
     const isNearBottomRef = useRef<boolean>(true);
     const isInitialLoadRef = useRef<boolean>(true);
     const lastMessageIdRef = useRef<string | null>(null);
-    useEffect(() => {
+
+    const otherUser = chat?.participants.find((p) => p._id !== user?.id);
+
+    // Initial data fetch
+    const fetchData = async () => {
         if (!chatId) return;
+        try {
+            isInitialLoadRef.current = true;
+            setLoading(true);
+            setError("");
+            const [messagesData, chatsData] = await Promise.all([
+                getMessages(chatId),
+                getUserChats(),
+            ]);
 
-        const loadMessagesAndChat = async () => {
-            try {
-                isInitialLoadRef.current = true;
-                setLoading(true);
-                const [messagesData, chatsData] = await Promise.all([
-                    getMessages(chatId),
-                    getUserChats()
-                ]);
-                setMessages(messagesData.messages.slice().reverse());
-                setNextCursor(messagesData.nextCursor);
-                setChat(chatsData.find(c => c._id === chatId) || null);
-                socket.emit("mark_seen", chatId);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load messages");
-            } finally {
-                setLoading(false);
-            }
-        };
+            setMessages(messagesData.messages.slice().reverse());
+            setNextCursor(messagesData.nextCursor);
+            setChat(chatsData.find((c) => c._id === chatId) || null);
+            socket.emit("mark_seen", chatId);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load conversation");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        void loadMessagesAndChat();
+    useEffect(() => {
+        void fetchData();
     }, [chatId]);
 
-    const { sendMessage, sendMedia } = useChatSocket({
+    // Socket message handler
+    const { sendMessage, sendMedia, retryMessage } = useChatSocket({
         chatId: chatId ?? "",
         currentUserId: user?.id ?? "",
         setMessages,
     });
 
+    const handleDeleteLocal = (messageId: string) => {
+        try {
+            setMessages((prev) => prev.filter((m) => m._id !== messageId));
+        } catch (err) {
+            console.error("Failed to delete message locally:", err);
+        }
+    };
+
+    // Block/Unblock toggle handler
+    const handleBlockToggle = async () => {
+        if (!chat || !otherUser || isBlocking) return;
+        try {
+            setIsBlocking(true);
+            if (chat.blockedByMe) {
+                await unblockUser(otherUser._id);
+                setChat({ ...chat, blockedByMe: false });
+            } else {
+                await blockUser(otherUser._id);
+                setChat({ ...chat, blockedByMe: true });
+            }
+        } catch (err) {
+            console.error("Failed to toggle block status:", err);
+        } finally {
+            setIsBlocking(false);
+        }
+    };
+
+    // Copy user handle
+    const handleCopyOtherUserHandle = async () => {
+        if (!otherUser?.username) return;
+        try {
+            await navigator.clipboard.writeText(`@${otherUser.username}`);
+            setCopiedHandle(true);
+            setTimeout(() => setCopiedHandle(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy handle:", err);
+        }
+    };
+
+    // Realtime typing signals
     useEffect(() => {
         if (!chatId) return;
 
-        const handleUserTyping = ({ chatId: eventChatId, userId: typingUserId }: { chatId: string, userId: string }) => {
+        const handleUserTyping = ({
+            chatId: eventChatId,
+            userId: typingUserId,
+        }: {
+            chatId: string;
+            userId: string;
+        }) => {
             if (eventChatId === chatId && typingUserId !== user?.id) {
                 setIsTyping(true);
             }
         };
 
-        const handleUserStopTyping = ({ chatId: eventChatId, userId: typingUserId }: { chatId: string, userId: string }) => {
+        const handleUserStopTyping = ({
+            chatId: eventChatId,
+            userId: typingUserId,
+        }: {
+            chatId: string;
+            userId: string;
+        }) => {
             if (eventChatId === chatId && typingUserId !== user?.id) {
                 setIsTyping(false);
             }
@@ -89,6 +177,7 @@ const ChatView = () => {
         };
     }, [chatId, user?.id]);
 
+    // Scroll management
     const scrollToBottom = () => {
         try {
             if (containerRef.current) {
@@ -96,8 +185,8 @@ const ChatView = () => {
                 isNearBottomRef.current = true;
                 setShowNewMessagePill(false);
             }
-        } catch (error) {
-            console.error("Failed to scroll to bottom:", error);
+        } catch (err) {
+            console.error("Failed to scroll to bottom:", err);
         }
     };
 
@@ -109,13 +198,14 @@ const ChatView = () => {
             if (isNearBottomRef.current) {
                 setShowNewMessagePill(false);
             }
-        } catch (error) {
-            console.error("Failed to compute scroll position:", error);
+        } catch (err) {
+            console.error("Scroll position computation error:", err);
         }
 
+        // Pagination for older messages
         if (!chatId || !nextCursor || loadingOlder) return;
 
-        if (e.currentTarget.scrollTop < 100) {
+        if (e.currentTarget.scrollTop < 80) {
             try {
                 setLoadingOlder(true);
                 const data = await getMessages(chatId, nextCursor);
@@ -137,12 +227,13 @@ const ChatView = () => {
     useLayoutEffect(() => {
         try {
             if (previousScrollHeightRef.current > 0 && containerRef.current) {
-                const diff = containerRef.current.scrollHeight - previousScrollHeightRef.current;
+                const diff =
+                    containerRef.current.scrollHeight - previousScrollHeightRef.current;
                 containerRef.current.scrollTop += diff;
                 previousScrollHeightRef.current = 0;
             }
-        } catch (error) {
-            console.error("Failed to preserve scroll position", error);
+        } catch (err) {
+            console.error("Scroll position preservation error:", err);
         }
     }, [messages.length]);
 
@@ -168,83 +259,451 @@ const ChatView = () => {
                     setShowNewMessagePill(true);
                 }
             }
-        } catch (error) {
-            console.error("Auto-scroll failed", error);
+        } catch (err) {
+            console.error("Auto-scroll failed:", err);
         }
     }, [messages]);
 
     if (!chatId) return null;
 
-    if (loading) return <p>Loading...</p>;
-    if (error) return <p>{error}</p>;
-    const otherUser = chat?.participants.find((p) => p._id !== user?.id);
     const online = otherUser ? isOnline(otherUser._id) : false;
-    return (
-        <main>
-            {otherUser && (
-                <header style={{ paddingBottom: "16px", marginBottom: "16px", borderBottom: "1px solid #ccc" }}>
-                    <h2 style={{ margin: 0 }}>{otherUser.username}</h2>
-                    <p style={{ margin: 0, fontSize: "12px", color: online ? "#16a34a" : "gray" }}>
-                        {online ? "Online" : getRelativeTime(getLastSeen(otherUser._id, otherUser.lastSeenAt))}
-                    </p>
-                </header>
-            )}
+    const lastSeenTime = otherUser
+        ? getLastSeen(otherUser._id, otherUser.lastSeenAt)
+        : null;
+    const isBlocked = chat?.blockedByMe || chat?.blockedByThem;
+    const otherUserAvatar = otherUser?.avatarUrl || DEFAULT_AVATAR;
 
-            <div style={{ position: "relative" }}>
+    const displayName =
+        otherUser?.name?.firstName
+            ? `${otherUser.name.firstName} ${otherUser.name.lastName || ""}`.trim()
+            : otherUser?.username
+            ? `@${otherUser.username}`
+            : "User";
+
+    return (
+        <div className="h-screen w-full flex flex-col bg-background bg-ambient-glow text-foreground overflow-hidden">
+            {/* =========================================================================
+                HEADER BAR
+               ========================================================================= */}
+            <header className="w-full border-b border-border/80 bg-card/70 backdrop-blur-md px-4 h-16 shrink-0 flex items-center justify-between z-20">
+                <div className="flex items-center gap-3 min-w-0">
+                    {/* Back Button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate("/")}
+                        className="size-9 text-muted-foreground hover:text-foreground shrink-0"
+                        aria-label="Back to conversations"
+                    >
+                        <ArrowLeft className="size-4" />
+                    </Button>
+
+                    {/* Participant Avatar & Presence (Clickable to open profile details) */}
+                    {otherUser && (
+                        <div
+                            onClick={() => setShowProfileModal(true)}
+                            className="relative shrink-0 cursor-pointer group"
+                            title="Click to view profile & DP"
+                        >
+                            <img
+                                src={otherUserAvatar}
+                                alt={otherUser.username}
+                                className="size-10 rounded-full object-cover border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all"
+                            />
+                            {online && (
+                                <span
+                                    className="absolute bottom-0 right-0 size-3 rounded-full bg-emerald-500 ring-2 ring-card"
+                                    title="Online"
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Participant Info (Clickable to open profile modal) */}
+                    {otherUser ? (
+                        <div
+                            onClick={() => setShowProfileModal(true)}
+                            className="min-w-0 cursor-pointer group"
+                            title="Click to view profile"
+                        >
+                            <div className="flex items-center gap-1.5">
+                                <h2 className="text-[15px] font-bold leading-tight text-foreground group-hover:text-primary transition-colors truncate">
+                                    {displayName}
+                                </h2>
+                                {otherUser.name?.firstName && (
+                                    <span className="text-xs text-muted-foreground hidden sm:inline truncate">
+                                        @{otherUser.username}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-[11px] leading-tight text-muted-foreground mt-0.5 truncate">
+                                {online ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                        Online
+                                    </span>
+                                ) : lastSeenTime ? (
+                                    `Last seen ${getRelativeTime(lastSeenTime)}`
+                                ) : (
+                                    "Offline"
+                                )}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="h-4 bg-muted rounded w-32 animate-pulse" />
+                    )}
+                </div>
+
+                {/* Header Actions */}
+                {otherUser && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Info Action */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowProfileModal(true)}
+                            className="size-8 text-muted-foreground hover:text-foreground"
+                            aria-label="View user profile"
+                        >
+                            <Info className="size-4" />
+                        </Button>
+
+                        {/* Block/Unblock Action */}
+                        <Button
+                            variant={chat?.blockedByMe ? "secondary" : "ghost"}
+                            size="sm"
+                            disabled={isBlocking}
+                            onClick={handleBlockToggle}
+                            className={cn(
+                                "h-8 px-2.5 text-xs font-medium gap-1.5",
+                                chat?.blockedByMe
+                                    ? "text-foreground"
+                                    : "text-muted-foreground hover:text-destructive"
+                            )}
+                        >
+                            {isBlocking ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                            ) : chat?.blockedByMe ? (
+                                <>
+                                    <UserCheck className="size-3.5" />
+                                    <span>Unblock</span>
+                                </>
+                            ) : (
+                                <>
+                                    <UserX className="size-3.5" />
+                                    <span className="hidden sm:inline">Block</span>
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                )}
+            </header>
+
+            {/* =========================================================================
+                PARTICIPANT PROFILE DETAILS MODAL
+               ========================================================================= */}
+            <AnimatePresence>
+                {showProfileModal && otherUser && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowProfileModal(false)}
+                        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full max-w-sm rounded-3xl bg-card border border-border/80 p-6 shadow-2xl space-y-5 relative"
+                        >
+                            {/* Close Button */}
+                            <button
+                                type="button"
+                                onClick={() => setShowProfileModal(false)}
+                                className="absolute top-4 right-4 size-8 rounded-full bg-secondary text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                            >
+                                <X className="size-4" />
+                            </button>
+
+                            {/* Full DP Showcase with zoom trigger */}
+                            <div className="flex flex-col items-center text-center space-y-3">
+                                <div
+                                    onClick={() => setShowFullDp(true)}
+                                    className="relative group size-28 rounded-full overflow-hidden border-2 border-border shadow-md cursor-pointer ring-4 ring-primary/10"
+                                    title="Click to view full picture"
+                                >
+                                    <img
+                                        src={otherUserAvatar}
+                                        alt={otherUser.username}
+                                        className="size-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                        <Maximize2 className="size-5" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-bold text-foreground">
+                                        {displayName}
+                                    </h3>
+
+                                    {/* Copyable @username handle */}
+                                    <div className="mt-1 flex items-center justify-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={handleCopyOtherUserHandle}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
+                                            title="Click to copy handle"
+                                        >
+                                            <span>@{otherUser.username}</span>
+                                            {copiedHandle ? (
+                                                <Check className="size-3 text-emerald-500 stroke-3" />
+                                            ) : (
+                                                <Copy className="size-3 opacity-60" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Online Presence Badge */}
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary text-[11px] font-medium text-muted-foreground">
+                                    <span
+                                        className={cn(
+                                            "size-2 rounded-full",
+                                            online ? "bg-emerald-500" : "bg-muted-foreground/40"
+                                        )}
+                                    />
+                                    <span>
+                                        {online ? "Active Now" : lastSeenTime ? `Last seen ${getRelativeTime(lastSeenTime)}` : "Offline"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Bio details */}
+                            <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
+                                <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
+                                {otherUser.bio || "No bio provided."}
+                            </div>
+
+                            {/* Actions in Profile Modal */}
+                            <div className="flex gap-2 pt-1">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 rounded-xl text-xs font-semibold"
+                                    onClick={() => {
+                                        setShowProfileModal(false);
+                                        setShowFullDp(true);
+                                    }}
+                                >
+                                    <Maximize2 className="size-3.5 mr-1.5" />
+                                    <span>View Photo</span>
+                                </Button>
+
+                                <Button
+                                    variant={chat?.blockedByMe ? "secondary" : "destructive"}
+                                    className="flex-1 rounded-xl text-xs font-semibold"
+                                    disabled={isBlocking}
+                                    onClick={handleBlockToggle}
+                                >
+                                    {chat?.blockedByMe ? (
+                                        <>
+                                            <UserCheck className="size-3.5 mr-1.5" />
+                                            <span>Unblock</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UserX className="size-3.5 mr-1.5" />
+                                            <span>Block Contact</span>
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* =========================================================================
+                FULLSCREEN DP LIGHTBOX MODAL
+               ========================================================================= */}
+            <AnimatePresence>
+                {showFullDp && otherUser && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowFullDp(false)}
+                        className="fixed inset-0 z-50 bg-black/85 backdrop-blur-lg flex items-center justify-center p-4 cursor-zoom-out"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0.9 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="relative max-w-[420px] w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
+                        >
+                            <img
+                                src={otherUserAvatar}
+                                alt={otherUser.username}
+                                className="w-full h-auto object-cover max-h-[75vh]"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowFullDp(false)}
+                                className="absolute top-3 right-3 size-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* =========================================================================
+                MAIN CHAT CONTAINER
+               ========================================================================= */}
+            <main className="flex-1 flex flex-col min-h-0 relative max-w-[800px] w-full mx-auto">
+                {/* Error Banner */}
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="m-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-sm"
+                        role="alert"
+                    >
+                        <div className="flex items-center gap-2">
+                            <AlertCircle className="size-4 shrink-0" />
+                            <span>{error}</span>
+                        </div>
+                        <Button
+                            variant="destructive"
+                            size="xs"
+                            onClick={() => void fetchData()}
+                        >
+                            Retry
+                        </Button>
+                    </motion.div>
+                )}
+
+                {/* Message Scroll Container */}
                 <div
                     ref={containerRef}
                     onScroll={handleScroll}
-                    style={{ overflowY: "auto", maxHeight: "60vh", display: "flex", flexDirection: "column" }}
+                    className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
                 >
+                    {/* Older Messages Loading Indicator */}
                     {loadingOlder && (
-                        <div style={{ textAlign: "center", padding: "8px", fontSize: "12px", color: "gray" }}>
-                            Loading older messages...
+                        <div className="flex justify-center py-2">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/80 px-3 py-1 rounded-full border border-border/50">
+                                <Loader2 className="size-3 animate-spin" />
+                                <span>Loading older messages...</span>
+                            </div>
                         </div>
                     )}
-                    {messages.map((message) => (
-                        <MessageBubble
-                            key={message._id}
-                            message={message}
-                            isMine={message.sender === user?.id}
-                        />
-                    ))}
+
+                    {/* Initial Loading Skeletons */}
+                    {loading ? (
+                        <div className="space-y-4 py-4 animate-pulse">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <div
+                                    key={i}
+                                    className={cn(
+                                        "flex",
+                                        i % 2 === 0 ? "justify-start" : "justify-end"
+                                    )}
+                                >
+                                    <div
+                                        className={cn(
+                                            "h-10 rounded-2xl bg-muted/70",
+                                            i % 2 === 0 ? "w-48" : "w-64"
+                                        )}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ) : messages.length === 0 ? (
+                        /* Empty Chat State */
+                        <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 my-auto">
+                            <div className="size-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground mb-3 shadow-xs">
+                                <Sparkles className="size-6 stroke-[1.5]" />
+                            </div>
+                            <h3 className="text-sm font-semibold text-foreground">
+                                No messages yet
+                            </h3>
+                            <p className="text-xs text-muted-foreground max-w-[240px] mt-1">
+                                Send a message to start this end-to-end encrypted conversation with{" "}
+                                <span className="font-medium text-foreground">{displayName}</span>.
+                            </p>
+                        </div>
+                    ) : (
+                        /* Message List */
+                        messages.map((message) => (
+                            <MessageBubble
+                                key={message._id}
+                                message={message}
+                                isMine={message.sender === user?.id}
+                                onDeleteLocal={handleDeleteLocal}
+                                onRetry={retryMessage}
+                            />
+                        ))
+                    )}
                 </div>
 
-                {showNewMessagePill && (
-                    <button
-                        onClick={scrollToBottom}
-                        type="button"
-                        style={{
-                            position: "absolute",
-                            bottom: "16px",
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            padding: "6px 12px",
-                            borderRadius: "16px",
-                            backgroundColor: "#0ea5e9",
-                            color: "white",
-                            border: "none",
-                            cursor: "pointer",
-                            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                            fontSize: "12px",
-                            fontWeight: "bold",
-                            zIndex: 10
+                {/* Floating "New Message" Scroll Pill */}
+                <AnimatePresence>
+                    {showNewMessagePill && (
+                        <motion.button
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                            type="button"
+                            onClick={scrollToBottom}
+                            className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-md hover:opacity-90 active:scale-95 transition-all z-10"
+                        >
+                            <ArrowDown className="size-3.5" />
+                            <span>New messages</span>
+                        </motion.button>
+                    )}
+                </AnimatePresence>
+
+                {/* Live Typing Signal Bar */}
+                <AnimatePresence>
+                    {isTyping && !isBlocked && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="px-4 pb-1.5 flex items-center gap-2 text-xs text-muted-foreground"
+                        >
+                            <div className="flex items-center gap-1">
+                                <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="size-1.5 bg-primary/70 rounded-full animate-bounce" />
+                            </div>
+                            <span>{displayName} is typing…</span>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Bottom Message Input Bar */}
+                <footer className="p-3 border-t border-border/80 bg-card/60 backdrop-blur-md shrink-0">
+                    <MessageInput
+                        onSend={sendMessage}
+                        onSendMedia={sendMedia}
+                        onTyping={() => {
+                            if (!isBlocked) {
+                                handleTyping();
+                            }
                         }}
-                    >
-                        ↓ New message
-                    </button>
-                )}
-            </div>
-
-            {isTyping && <p style={{ fontSize: "12px", color: "gray", fontStyle: "italic", marginBottom: "8px" }}>Typing...</p>}
-
-            <MessageInput
-                onSendMedia={sendMedia}
-                onSend={sendMessage}
-                onTyping={handleTyping}
-                onStopTyping={stopTyping}
-            />
-        </main>
+                        onStopTyping={stopTyping}
+                        blockedByMe={chat?.blockedByMe}
+                        blockedByThem={chat?.blockedByThem}
+                        onUnblock={handleBlockToggle}
+                    />
+                </footer>
+            </main>
+        </div>
     );
 };
 

@@ -13,6 +13,14 @@ export const setTokenRefreshHandler = (
     onTokenRefresh = handler;
 };
 
+let onTokenRefreshFail: (() => void) | null = null;
+
+export const setTokenRefreshFailHandler = (
+    handler: () => void
+) => {
+    onTokenRefreshFail = handler;
+};
+
 export const setAccessToken = (
     token: string | null
 ) => {
@@ -55,12 +63,13 @@ axiosClient.interceptors.response.use(
         }
 
         /*
-         * Never try to refresh if refresh itself failed.
+         * Never try to refresh if the request was an auth route (login, register, refresh, logout).
          */
         if (
-            originalRequest.url?.includes(
-                "/auth/refresh"
-            )
+            originalRequest.url?.includes("/auth/login") ||
+            originalRequest.url?.includes("/auth/register") ||
+            originalRequest.url?.includes("/auth/refresh") ||
+            originalRequest.url?.includes("/auth/logout")
         ) {
             return Promise.reject(error);
         }
@@ -99,6 +108,7 @@ axiosClient.interceptors.response.use(
             return axiosClient(originalRequest);
         } catch (err) {
             setAccessToken(null);
+            onTokenRefreshFail?.();
 
             return Promise.reject(err);
         }

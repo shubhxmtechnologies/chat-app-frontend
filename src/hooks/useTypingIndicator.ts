@@ -40,8 +40,10 @@ export const useTypingIndicator = (chatId: string) => {
             if (stopTypingTimeoutRef.current) {
                 clearTimeout(stopTypingTimeoutRef.current);
             }
+            // Emit final stop_typing when component unmounts
+            socket.emit("stop_typing", chatId);
         };
-    }, []);
+    }, [chatId]);
 
     return { handleTyping, stopTyping };
 };

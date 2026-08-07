@@ -9,6 +9,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [micError, setMicError] = useState<string | null>(null);
     const [recordingTime, setRecordingTime] = useState(0);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -36,6 +37,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setMicError(null);
             streamRef.current = stream;
 
             const mediaRecorder = new MediaRecorder(stream);
@@ -77,6 +79,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
             }, 1000);
         } catch (error) {
             console.error("Microphone access denied or failed:", error);
+            setMicError("Microphone access denied. Please allow microphone access in your browser settings.");
         }
     };
 
@@ -141,6 +144,11 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
 
     return (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: "#f3f4f6", borderRadius: "8px" }}>
+            {micError && (
+                <div style={{ color: "#ef4444", fontSize: "12px", marginBottom: "8px", padding: "4px 8px", background: "#fef2f2", borderRadius: "4px" }}>
+                    {micError}
+                </div>
+            )}
             {!audioUrl ? (
                 <>
                     {isRecording ? (

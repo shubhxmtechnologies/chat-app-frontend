@@ -3,10 +3,13 @@ import axiosClient, {
     setAccessToken,
 } from "./axiosClient";
 
-interface RegisterData {
+export interface RegisterData {
     username: string;
     email: string;
     password: string;
+    firstName: string;
+    lastName?: string | null;
+    bio?: string | null;
 }
 
 interface LoginData {
