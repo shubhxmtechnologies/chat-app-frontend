@@ -22,6 +22,7 @@ interface Props {
     onSendMedia?: (
         file: File,
         previewUrl: string,
+        clientMessageId: string,
         messageType?: "image" | "voice"
     ) => void;
     onTyping: () => void;
