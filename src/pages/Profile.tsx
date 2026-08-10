@@ -8,8 +8,6 @@ import {
     Eye,
     EyeOff,
     Camera,
-    Upload,
-    Trash2,
     Copy,
     Check,
     CheckCircle2,
@@ -24,7 +22,6 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import {
     uploadAvatar,
-    deleteAvatar,
     updateName,
     updateEmail,
     changePassword,
@@ -63,9 +60,13 @@ const Profile = () => {
 
     // Avatar state
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
-    const [deletingAvatar, setDeletingAvatar] = useState(false);
     const [avatarError, setAvatarError] = useState("");
     const [avatarSuccess, setAvatarSuccess] = useState("");
+
+    // Blocked user profile modal
+    const [viewingBlockedUser, setViewingBlockedUser] = useState<SearchUser | null>(null);
+    const [showBlockedUserDp, setShowBlockedUserDp] = useState(false);
+    const [copiedBlockedHandle, setCopiedBlockedHandle] = useState(false);
 
     // Name state & validation
     const [firstName, setFirstName] = useState(user?.name?.firstName || "");
@@ -190,24 +191,18 @@ const Profile = () => {
         }
     };
 
-    // Avatar delete handler (resets to default)
-    const handleDeleteAvatar = async () => {
-        setAvatarError("");
-        setAvatarSuccess("");
+    // Copy blocked user handle
+    const handleCopyBlockedHandle = async (username: string) => {
         try {
-            setDeletingAvatar(true);
-            const defaultUrl = await deleteAvatar();
-            updateUser({ avatarUrl: defaultUrl });
-            setAvatarSuccess("Profile photo reset to default!");
-            setTimeout(() => setAvatarSuccess(""), 3000);
+            await navigator.clipboard.writeText(`@${username}`);
+            setCopiedBlockedHandle(true);
+            setTimeout(() => setCopiedBlockedHandle(false), 2000);
         } catch (err) {
-            setAvatarError(err instanceof Error ? err.message : "Failed to reset avatar");
-        } finally {
-            setDeletingAvatar(false);
+            console.error("Failed to copy handle:", err);
         }
     };
 
-    // Save Name handler
+    // Save Name handler — skip if unchanged
     const handleSaveName = async (e: React.FormEvent) => {
         e.preventDefault();
         setNameSuccess("");
@@ -220,6 +215,15 @@ const Profile = () => {
                 ...(fnErr && { firstName: fnErr }),
                 ...(lnErr && { lastName: lnErr }),
             });
+            return;
+        }
+
+        // Dirty check — don't hit API if nothing changed
+        const currentFirst = (user?.name?.firstName || "").trim();
+        const currentLast = (user?.name?.lastName || "").trim();
+        if (firstName.trim() === currentFirst && (lastName.trim() || "") === currentLast) {
+            setNameSuccess("No changes to save.");
+            setTimeout(() => setNameSuccess(""), 2000);
             return;
         }
 
@@ -239,7 +243,7 @@ const Profile = () => {
         }
     };
 
-    // Save Bio handler
+    // Save Bio handler — skip if unchanged
     const handleSaveBio = async (e: React.FormEvent) => {
         e.preventDefault();
         setBioSuccess("");
@@ -247,6 +251,14 @@ const Profile = () => {
         const bErr = validateBio(bio);
         if (bErr) {
             setBioError(bErr);
+            return;
+        }
+
+        // Dirty check
+        const currentBio = (user?.bio || "").trim();
+        if ((bio.trim() || "") === currentBio) {
+            setBioSuccess("No changes to save.");
+            setTimeout(() => setBioSuccess(""), 2000);
             return;
         }
 
@@ -264,7 +276,7 @@ const Profile = () => {
         }
     };
 
-    // Save Email handler
+    // Save Email handler — skip if unchanged
     const handleSaveEmail = async (e: React.FormEvent) => {
         e.preventDefault();
         setEmailSuccess("");
@@ -272,6 +284,13 @@ const Profile = () => {
         const eErr = validateEmail(email);
         if (eErr) {
             setEmailError(eErr);
+            return;
+        }
+
+        // Dirty check
+        if (email.trim().toLowerCase() === (user?.email || "").trim().toLowerCase()) {
+            setEmailSuccess("No changes to save.");
+            setTimeout(() => setEmailSuccess(""), 2000);
             return;
         }
 
@@ -289,16 +308,24 @@ const Profile = () => {
         }
     };
 
-    // Change Password handler
+    // Change Password handler — require all fields filled
     const handleChangePassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setPasswordSuccess("");
+
+        if (!currentPassword || !newPassword || !confirmNewPassword) {
+            setPasswordErrors({ current: !currentPassword ? "Required" : undefined, new: !newPassword ? "Required" : undefined, confirm: !confirmNewPassword ? "Required" : undefined });
+            return;
+        }
 
         const curErr = validatePassword(currentPassword);
         const newErr = validatePassword(newPassword);
         let matchErr: string | null = null;
         if (newPassword !== confirmNewPassword) {
             matchErr = "New passwords do not match";
+        }
+        if (currentPassword === newPassword) {
+            matchErr = "New password must differ from current password";
         }
 
         if (curErr || newErr || matchErr) {
@@ -331,6 +358,12 @@ const Profile = () => {
     if (!user) return null;
 
     const currentAvatarUrl = user.avatarUrl || DEFAULT_AVATAR;
+
+    // Dirty flags — buttons disabled when nothing changed
+    const nameDirty = firstName.trim() !== (user.name?.firstName || "").trim() || (lastName.trim() || "") !== (user.name?.lastName || "").trim();
+    const bioDirty = (bio.trim() || "") !== (user.bio || "").trim();
+    const emailDirty = email.trim().toLowerCase() !== (user.email || "").trim().toLowerCase();
+    const passwordFilled = !!(currentPassword && newPassword && confirmNewPassword);
 
     return (
         <div className="min-h-screen w-full bg-background bg-ambient-glow text-foreground flex flex-col items-center">
@@ -440,7 +473,7 @@ const Profile = () => {
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    disabled={uploadingAvatar || deletingAvatar}
+                                    disabled={uploadingAvatar}
                                     className="size-8 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
                                     title="Upload new photo"
                                 >
@@ -484,7 +517,7 @@ const Profile = () => {
                             {user.bio || "No bio added yet. Add a short bio to introduce yourself to your contacts."}
                         </p>
 
-                        {/* Avatar Action Buttons */}
+                        {/* Avatar Action Button */}
                         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2">
                             <Button
                                 size="sm"
@@ -493,22 +526,9 @@ const Profile = () => {
                                 onClick={() => fileInputRef.current?.click()}
                                 className="h-8 text-xs font-medium gap-1.5 rounded-xl"
                             >
-                                <Upload className="size-3" />
+                                <Camera className="size-3" />
                                 <span>Change Photo</span>
                             </Button>
-
-                            {user.avatarUrl && (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    disabled={deletingAvatar}
-                                    onClick={handleDeleteAvatar}
-                                    className="h-8 text-xs font-medium text-muted-foreground hover:text-destructive gap-1.5 rounded-xl"
-                                >
-                                    <Trash2 className="size-3" />
-                                    <span>Reset to Default</span>
-                                </Button>
-                            )}
                         </div>
 
                         {avatarError && (
@@ -634,8 +654,8 @@ const Profile = () => {
                                     <Button
                                         type="submit"
                                         size="sm"
-                                        disabled={savingName}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                        disabled={savingName || !nameDirty}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
                                     >
                                         {savingName ? "Saving…" : "Save Name"}
                                     </Button>
@@ -684,8 +704,8 @@ const Profile = () => {
                                     <Button
                                         type="submit"
                                         size="sm"
-                                        disabled={savingBio}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                        disabled={savingBio || !bioDirty}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
                                     >
                                         {savingBio ? "Saving…" : "Save Bio"}
                                     </Button>
@@ -761,8 +781,8 @@ const Profile = () => {
                                     <Button
                                         type="submit"
                                         size="sm"
-                                        disabled={savingEmail}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                        disabled={savingEmail || !emailDirty}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
                                     >
                                         {savingEmail ? "Saving…" : "Update Email"}
                                     </Button>
@@ -875,8 +895,8 @@ const Profile = () => {
                                     <Button
                                         type="submit"
                                         size="sm"
-                                        disabled={savingPassword}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs"
+                                        disabled={savingPassword || !passwordFilled}
+                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
                                     >
                                         {savingPassword ? "Updating…" : "Change Password"}
                                     </Button>
@@ -888,6 +908,7 @@ const Profile = () => {
 
                 {/* TAB 3: BLOCKED USERS */}
                 {activeTab === "blocked" && (
+                    <>
                     <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                         <div>
                             <h3 className="text-base font-bold text-foreground">
@@ -913,19 +934,23 @@ const Profile = () => {
                                         key={bUser._id}
                                         className="flex items-center justify-between p-3 rounded-2xl bg-secondary/50 border border-border/60"
                                     >
-                                        <div className="flex items-center gap-3">
+                                        <div
+                                            className="flex items-center gap-3 cursor-pointer group min-w-0"
+                                            onClick={() => { setViewingBlockedUser(bUser); setCopiedBlockedHandle(false); }}
+                                            title="View profile"
+                                        >
                                             <img
                                                 src={bUser.avatarUrl || DEFAULT_AVATAR}
                                                 alt={bUser.username}
-                                                className="size-10 rounded-full object-cover border border-border"
+                                                className="size-10 rounded-full object-cover border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all shrink-0"
                                             />
-                                            <div>
-                                                <h4 className="text-sm font-bold text-foreground">
+                                            <div className="min-w-0">
+                                                <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
                                                     {bUser.name?.firstName
                                                         ? `${bUser.name.firstName} ${bUser.name.lastName || ""}`.trim()
                                                         : `@${bUser.username}`}
                                                 </h4>
-                                                <p className="text-xs text-muted-foreground">
+                                                <p className="text-xs text-muted-foreground truncate">
                                                     @{bUser.username}
                                                 </p>
                                             </div>
@@ -936,7 +961,7 @@ const Profile = () => {
                                             variant="outline"
                                             disabled={unblockingUserId === bUser._id}
                                             onClick={() => handleUnblock(bUser._id)}
-                                            className="h-8 text-xs font-semibold gap-1.5 rounded-xl hover:text-emerald-500 hover:border-emerald-500/40"
+                                            className="h-8 text-xs font-semibold gap-1.5 rounded-xl hover:text-emerald-500 hover:border-emerald-500/40 shrink-0"
                                         >
                                             {unblockingUserId === bUser._id ? (
                                                 <Loader2 className="size-3 animate-spin" />
@@ -952,6 +977,144 @@ const Profile = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Blocked User Profile Modal */}
+                    <AnimatePresence>
+                        {viewingBlockedUser && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setViewingBlockedUser(null)}
+                                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.95, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.95, opacity: 0 }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full max-w-sm rounded-3xl bg-card border border-border/80 p-6 shadow-2xl space-y-5 relative"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewingBlockedUser(null)}
+                                        className="absolute top-4 right-4 size-8 rounded-full bg-secondary text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                                    >
+                                        <X className="size-4" />
+                                    </button>
+
+                                    <div className="flex flex-col items-center text-center space-y-3">
+                                        <div
+                                            onClick={() => setShowBlockedUserDp(true)}
+                                            className="relative group size-28 rounded-full overflow-hidden border-2 border-border shadow-md cursor-pointer ring-4 ring-primary/10"
+                                            title="View full picture"
+                                        >
+                                            <img
+                                                src={viewingBlockedUser.avatarUrl || DEFAULT_AVATAR}
+                                                alt={viewingBlockedUser.username}
+                                                className="size-full object-cover"
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                <Maximize2 className="size-5" />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h3 className="text-lg font-bold text-foreground">
+                                                {viewingBlockedUser.name?.firstName
+                                                    ? `${viewingBlockedUser.name.firstName} ${viewingBlockedUser.name.lastName || ""}`.trim()
+                                                    : `@${viewingBlockedUser.username}`}
+                                            </h3>
+                                            <div className="mt-1 flex items-center justify-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopyBlockedHandle(viewingBlockedUser.username)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
+                                                    title="Click to copy handle"
+                                                >
+                                                    <span>@{viewingBlockedUser.username}</span>
+                                                    {copiedBlockedHandle ? (
+                                                        <Check className="size-3 text-emerald-500 stroke-3" />
+                                                    ) : (
+                                                        <Copy className="size-3 opacity-60" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-destructive/10 text-[11px] font-medium text-destructive">
+                                            Blocked
+                                        </span>
+                                    </div>
+
+                                    {viewingBlockedUser.bio && (
+                                        <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
+                                            <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
+                                            {viewingBlockedUser.bio}
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2 pt-1">
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1 rounded-xl text-xs font-semibold"
+                                            onClick={() => setShowBlockedUserDp(true)}
+                                        >
+                                            <Maximize2 className="size-3.5 mr-1.5" />
+                                            <span>View Photo</span>
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            className="flex-1 rounded-xl text-xs font-semibold"
+                                            disabled={unblockingUserId === viewingBlockedUser._id}
+                                            onClick={() => {
+                                                handleUnblock(viewingBlockedUser._id);
+                                                setViewingBlockedUser(null);
+                                            }}
+                                        >
+                                            <UserCheck className="size-3.5 mr-1.5" />
+                                            <span>Unblock</span>
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Blocked User Full DP Lightbox */}
+                    <AnimatePresence>
+                        {showBlockedUserDp && viewingBlockedUser && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setShowBlockedUserDp(false)}
+                                className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-lg flex items-center justify-center p-4 cursor-zoom-out"
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.9 }}
+                                    animate={{ scale: 1 }}
+                                    exit={{ scale: 0.9 }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="relative max-w-105 w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
+                                >
+                                    <img
+                                        src={viewingBlockedUser.avatarUrl || DEFAULT_AVATAR}
+                                        alt={viewingBlockedUser.username}
+                                        className="w-full h-auto object-cover max-h-[75vh]"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowBlockedUserDp(false)}
+                                        className="absolute top-3 right-3 size-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
+                                    >
+                                        <X className="size-4" />
+                                    </button>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                    </>
                 )}
             </main>
         </div>

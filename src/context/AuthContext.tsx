@@ -42,6 +42,8 @@ export interface User {
         firstName: string;
         lastName?: string | null;
     } | null;
+    globalMute?: boolean;
+    mutedChats?: string[];
 }
 interface AuthState {
     status: AuthStatus;

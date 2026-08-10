@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -14,9 +14,12 @@ import {
     X,
     Maximize2,
     Info,
+    Bell,
+    BellOff,
+    MessageCircle,
 } from "lucide-react";
 
-import { blockUser, unblockUser } from "@/api/user.api";
+import { blockUser, unblockUser, toggleChatMute } from "@/api/user.api";
 import { getUserChats } from "@/api/chat.api";
 import { getMessages } from "@/api/message.api";
 import { useAuth } from "@/context/AuthContext";
@@ -38,7 +41,7 @@ const DEFAULT_AVATAR = "https://cutiedp.com/wp-content/uploads/2025/08/no-dp-ima
 const ChatView = () => {
     const { chatId } = useParams<{ chatId: string }>();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const { isOnline, getLastSeen } = usePresence();
 
     const [messages, setMessages] = useState<Message[]>([]);
@@ -48,6 +51,7 @@ const ChatView = () => {
     const [chat, setChat] = useState<Chat | null>(null);
     const [nextCursor, setNextCursor] = useState<string | null>(null);
     const [loadingOlder, setLoadingOlder] = useState(false);
+    const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
     const [showNewMessagePill, setShowNewMessagePill] = useState(false);
     const [isBlocking, setIsBlocking] = useState(false);
 
@@ -55,6 +59,9 @@ const ChatView = () => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showFullDp, setShowFullDp] = useState(false);
     const [copiedHandle, setCopiedHandle] = useState(false);
+
+    // Unseen messages divider
+    const [unseenDividerId, setUnseenDividerId] = useState<string | null>(null);
 
     const { handleTyping, stopTyping } = useTypingIndicator(chatId ?? "");
 
@@ -78,7 +85,17 @@ const ChatView = () => {
                 getUserChats(),
             ]);
 
-            setMessages(messagesData.messages.slice().reverse());
+            const reversedMessages = messagesData.messages.slice().reverse();
+
+            if (isInitialLoadRef.current) {
+                const firstUnseen = reversedMessages.find(m => m.status !== "seen" && m.sender !== user?.id);
+                if (firstUnseen) {
+                    setUnseenDividerId(firstUnseen._id);
+                    setTimeout(() => setUnseenDividerId(null), 4000);
+                }
+            }
+
+            setMessages(reversedMessages);
             setNextCursor(messagesData.nextCursor);
             setChat(chatsData.find((c) => c._id === chatId) || null);
             socket.emit("mark_seen", chatId);
@@ -101,11 +118,27 @@ const ChatView = () => {
     });
 
     const handleDeleteLocal = (messageId: string) => {
-        try {
-            setMessages((prev) => prev.filter((m) => m._id !== messageId));
-        } catch (err) {
-            console.error("Failed to delete message locally:", err);
-        }
+        setMessages((prev) => prev.filter((m) => m._id !== messageId));
+    };
+
+    const handleEditLocal = (messageId: string, newText: string) => {
+        setMessages((prev) =>
+            prev.map((m) =>
+                m._id === messageId
+                    ? { ...m, text: newText, isEdited: true, editedAt: new Date().toISOString() }
+                    : m
+            )
+        );
+    };
+
+    const handleDeleteForEveryoneLocal = (messageId: string) => {
+        setMessages((prev) =>
+            prev.map((m) =>
+                m._id === messageId
+                    ? { ...m, isDeletedForEveryone: true, text: null, mediaUrl: null }
+                    : m
+            )
+        );
     };
 
     // Block/Unblock toggle handler
@@ -124,6 +157,23 @@ const ChatView = () => {
             console.error("Failed to toggle block status:", err);
         } finally {
             setIsBlocking(false);
+        }
+    };
+
+    // Mute/Unmute Chat
+    const [isMuting, setIsMuting] = useState(false);
+    const isMuted = user?.mutedChats?.includes(chatId || "");
+
+    const handleMuteToggle = async () => {
+        if (!chatId) return;
+        try {
+            setIsMuting(true);
+            const newMutedChats = await toggleChatMute(chatId);
+            updateUser({ mutedChats: newMutedChats });
+        } catch (err) {
+            console.error("Failed to toggle mute status:", err);
+        } finally {
+            setIsMuting(false);
         }
     };
 
@@ -152,6 +202,9 @@ const ChatView = () => {
         }) => {
             if (eventChatId === chatId && typingUserId !== user?.id) {
                 setIsTyping(true);
+                if (isNearBottomRef.current) {
+                    setTimeout(() => scrollToBottom(), 100);
+                }
             }
         };
 
@@ -277,8 +330,8 @@ const ChatView = () => {
         otherUser?.name?.firstName
             ? `${otherUser.name.firstName} ${otherUser.name.lastName || ""}`.trim()
             : otherUser?.username
-            ? `@${otherUser.username}`
-            : "User";
+                ? `@${otherUser.username}`
+                : "User";
 
     return (
         <div className="h-screen w-full flex flex-col bg-background bg-ambient-glow text-foreground overflow-hidden">
@@ -342,7 +395,7 @@ const ChatView = () => {
                                         Online
                                     </span>
                                 ) : lastSeenTime ? (
-                                    `Last seen ${getRelativeTime(lastSeenTime)}`
+                                    `${getRelativeTime(lastSeenTime)}`
                                 ) : (
                                     "Offline"
                                 )}
@@ -365,6 +418,27 @@ const ChatView = () => {
                             aria-label="View user profile"
                         >
                             <Info className="size-4" />
+                        </Button>
+
+                        {/* Mute Action */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={isMuting}
+                            onClick={handleMuteToggle}
+                            className={cn(
+                                "size-8 text-muted-foreground hover:text-foreground",
+                                isMuted && "text-amber-500 hover:text-amber-600"
+                            )}
+                            aria-label="Mute chat"
+                        >
+                            {isMuting ? (
+                                <Loader2 className="size-4 animate-spin" />
+                            ) : isMuted ? (
+                                <BellOff className="size-4" />
+                            ) : (
+                                <Bell className="size-4" />
+                            )}
                         </Button>
 
                         {/* Block/Unblock Action */}
@@ -415,7 +489,7 @@ const ChatView = () => {
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full max-w-sm rounded-3xl bg-card border border-border/80 p-6 shadow-2xl space-y-5 relative"
+                            className="bg-card w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative"
                         >
                             {/* Close Button */}
                             <button
@@ -427,7 +501,7 @@ const ChatView = () => {
                             </button>
 
                             {/* Full DP Showcase with zoom trigger */}
-                            <div className="flex flex-col items-center text-center space-y-3">
+                            <div className="flex flex-col items-center text-center space-y-3 p-6">
                                 <div
                                     onClick={() => setShowFullDp(true)}
                                     className="relative group size-28 rounded-full overflow-hidden border-2 border-border shadow-md cursor-pointer ring-4 ring-primary/10"
@@ -475,19 +549,20 @@ const ChatView = () => {
                                         )}
                                     />
                                     <span>
-                                        {online ? "Active Now" : lastSeenTime ? `Last seen ${getRelativeTime(lastSeenTime)}` : "Offline"}
+                                        {online ? "Active Now" : lastSeenTime ? `${getRelativeTime(lastSeenTime)}` : "Offline"}
                                     </span>
                                 </div>
                             </div>
 
                             {/* Bio details */}
+                            <div className="px-6 pb-6">
                             <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
                                 <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
                                 {otherUser.bio || "No bio provided."}
                             </div>
 
                             {/* Actions in Profile Modal */}
-                            <div className="flex gap-2 pt-1">
+                            <div className="flex gap-2 pt-4">
                                 <Button
                                     variant="outline"
                                     className="flex-1 rounded-xl text-xs font-semibold"
@@ -519,6 +594,7 @@ const ChatView = () => {
                                     )}
                                 </Button>
                             </div>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}
@@ -541,7 +617,7 @@ const ChatView = () => {
                             animate={{ scale: 1 }}
                             exit={{ scale: 0.9 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="relative max-w-[420px] w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
+                            className="relative max-w-sm w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
                         >
                             <img
                                 src={otherUserAvatar}
@@ -563,7 +639,7 @@ const ChatView = () => {
             {/* =========================================================================
                 MAIN CHAT CONTAINER
                ========================================================================= */}
-            <main className="flex-1 flex flex-col min-h-0 relative max-w-[800px] w-full mx-auto">
+            <main className="flex-1 flex flex-col min-h-0 relative w-full">
                 {/* Error Banner */}
                 {error && (
                     <motion.div
@@ -624,30 +700,59 @@ const ChatView = () => {
                         </div>
                     ) : messages.length === 0 ? (
                         /* Empty Chat State */
-                        <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 my-auto">
-                            <div className="size-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground mb-3 shadow-xs">
-                                <Sparkles className="size-6 stroke-[1.5]" />
+                        <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center px-4 py-10 opacity-70">
+                            <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
+                                <MessageCircle className="size-8" />
                             </div>
-                            <h3 className="text-sm font-semibold text-foreground">
+                            <h3 className="text-base font-semibold text-foreground mb-1">
                                 No messages yet
                             </h3>
-                            <p className="text-xs text-muted-foreground max-w-[240px] mt-1">
-                                Send a message to start this end-to-end encrypted conversation with{" "}
-                                <span className="font-medium text-foreground">{displayName}</span>.
+                            <p className="text-sm text-muted-foreground max-w-60">
+                                Send a message to start the conversation!
                             </p>
                         </div>
                     ) : (
                         /* Message List */
                         messages.map((message) => (
-                            <MessageBubble
-                                key={message._id}
-                                message={message}
-                                isMine={message.sender === user?.id}
-                                onDeleteLocal={handleDeleteLocal}
-                                onRetry={retryMessage}
-                            />
+                            <React.Fragment key={message._id || message.clientMessageId}>
+                                {unseenDividerId === (message.clientMessageId || message._id) && (
+                                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center my-4 w-full relative z-10">
+                                        <div className="bg-primary/10 text-primary text-[12px] font-semibold px-4 py-1.5 rounded-full border border-primary/20 shadow-sm backdrop-blur-md">
+                                            Unread Messages
+                                        </div>
+                                    </motion.div>
+                                )}
+                                <MessageBubble
+                                    message={message}
+                                    isMine={message.sender === user?.id}
+                                    onDeleteLocal={handleDeleteLocal}
+                                    onEditLocal={handleEditLocal}
+                                    onDeleteForEveryoneLocal={handleDeleteForEveryoneLocal}
+                                    onRetry={retryMessage}
+                                    onReply={(msg) => setReplyingToMessage(msg)}
+                                />
+                            </React.Fragment>
                         ))
                     )}
+
+                    {/* Animated Typing Bubble inside Message List */}
+                    <AnimatePresence>
+                        {isTyping && !isBlocked && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 10, originX: 0, originY: 1 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex justify-start w-full my-1"
+                            >
+                                <div className="bg-card dark:bg-card/90 text-foreground border border-border/80 px-4 py-3.5 rounded-[22px] rounded-bl-lg shadow-xs flex items-center gap-1.5">
+                                    <span className="size-2 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                    <span className="size-2 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                    <span className="size-2 bg-primary/70 rounded-full animate-bounce" />
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Floating "New Message" Scroll Pill */}
@@ -667,30 +772,28 @@ const ChatView = () => {
                     )}
                 </AnimatePresence>
 
-                {/* Live Typing Signal Bar */}
-                <AnimatePresence>
-                    {isTyping && !isBlocked && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="px-4 pb-1.5 flex items-center gap-2 text-xs text-muted-foreground"
-                        >
-                            <div className="flex items-center gap-1">
-                                <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                <span className="size-1.5 bg-primary/70 rounded-full animate-bounce" />
-                            </div>
-                            <span>{displayName} is typing…</span>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
 
                 {/* Bottom Message Input Bar */}
-                <footer className="p-3 border-t border-border/80 bg-card/60 backdrop-blur-md shrink-0">
+                <footer className="p-3 lg:p-4 bg-transparent shrink-0">
                     <MessageInput
-                        onSend={sendMessage}
-                        onSendMedia={sendMedia}
+                        replyingTo={
+                            replyingToMessage
+                                ? {
+                                    _id: replyingToMessage._id,
+                                    text: replyingToMessage.text,
+                                    messageType: replyingToMessage.messageType,
+                                }
+                                : null
+                        }
+                        onCancelReply={() => setReplyingToMessage(null)}
+                        onSend={(text, clientMessageId) => {
+                            sendMessage(text, clientMessageId, replyingToMessage);
+                            setReplyingToMessage(null);
+                        }}
+                        onSendMedia={(file, previewUrl, clientMessageId, messageType) => {
+                            sendMedia(file, previewUrl, clientMessageId, messageType, replyingToMessage);
+                            setReplyingToMessage(null);
+                        }}
                         onTyping={() => {
                             if (!isBlocked) {
                                 handleTyping();

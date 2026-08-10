@@ -59,3 +59,29 @@ export const getUserChats =
             throw error;
         }
     };
+
+export const deleteChatForMe = async (chatId: string): Promise<void> => {
+    try {
+        await axiosClient.delete(`/chats/${chatId}/me`);
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                error.response?.data?.message ?? "Failed to delete chat"
+            );
+        }
+        throw error;
+    }
+};
+
+export const deleteChatForEveryone = async (chatId: string): Promise<void> => {
+    try {
+        await axiosClient.delete(`/chats/${chatId}/everyone`);
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                error.response?.data?.message ?? "Failed to delete chat for everyone"
+            );
+        }
+        throw error;
+    }
+};

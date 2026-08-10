@@ -1,7 +1,6 @@
 export type MessageType =
     | "text"
     | "image"
-    | "sticker"
     | "voice";
 
 export interface ChatUser {

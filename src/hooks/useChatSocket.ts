@@ -14,27 +14,42 @@ interface Props {
     >;
 }
 
+import { useAuth } from "../context/AuthContext";
+
 export const useChatSocket = ({
     chatId,
     currentUserId,
     setMessages,
 }: Props) => {
+    const { user } = useAuth();
+
     useEffect(() => {
         socket.emit("join_chat", chatId);
+        socket.emit("mark_seen", chatId);
 
         const handleReceive = (
             message: Message
         ) => {
             if (message.chat !== chatId) {
+                if (message.sender !== currentUserId) {
+                    try {
+                        if (!user?.globalMute && !user?.mutedChats?.includes(message.chat)) {
+                            const audio = new Audio("/notification.wav");
+                            audio.play().catch(() => {});
+                        }
+                    } catch (e) {}
+                }
                 return;
             }
 
             setMessages((previous) => {
                 if (message.sender !== currentUserId) {
                     try {
-                        const audio = new Audio("/notification.wav");
-                        audio.play().catch(() => {});
-                    } catch (e) {}
+                        if (!user?.globalMute && !user?.mutedChats?.includes(message.chat)) {
+                            const audio = new Audio("/notification.wav");
+                            audio.play().catch(() => { });
+                        }
+                    } catch (e) { }
                 }
                 /*
                  * Already have this real message?
@@ -64,7 +79,11 @@ export const useChatSocket = ({
                     return previous.map((m) =>
                         m.clientMessageId ===
                             message.clientMessageId
-                            ? message
+                            ? {
+                                  ...message,
+                                  status: m.status === 'seen' ? 'seen' : message.status,
+                                  seenAt: m.seenAt || message.seenAt,
+                              }
                             : m
                     );
                 }
@@ -81,38 +100,26 @@ export const useChatSocket = ({
         const handleMessageSeen = ({
             chatId: eventChatId,
             messageIds,
+            clientMessageIds = [],
             seenAt,
         }: {
             chatId: string;
             messageIds: string[];
+            clientMessageIds?: string[];
             seenAt: string;
         }) => {
             if (eventChatId !== chatId) return;
 
             setMessages((previous) =>
                 previous.map((m) =>
-                    messageIds.includes(m._id)
+                    messageIds.includes(m._id) || (m.clientMessageId && clientMessageIds.includes(m.clientMessageId))
                         ? { ...m, status: "seen", seenAt }
                         : m
                 )
             );
         };
 
-        const handleMessageDelivered = ({
-            messageId,
-            deliveredAt,
-        }: {
-            messageId: string;
-            deliveredAt: string;
-        }) => {
-            setMessages((previous) =>
-                previous.map((m) =>
-                    m._id === messageId && m.status !== "seen"
-                        ? { ...m, status: "delivered", deliveredAt }
-                        : m
-                )
-            );
-        };
+
 
         const handleMessageEdited = (editedMessage: Message) => {
             setMessages((previous) =>
@@ -147,10 +154,7 @@ export const useChatSocket = ({
             handleMessageSeen
         );
 
-        socket.on(
-            "message_delivered",
-            handleMessageDelivered
-        );
+
 
         socket.on(
             "message_edited",
@@ -173,10 +177,7 @@ export const useChatSocket = ({
                 "message_seen",
                 handleMessageSeen
             );
-            socket.off(
-                "message_delivered",
-                handleMessageDelivered
-            );
+
             socket.off(
                 "message_edited",
                 handleMessageEdited
@@ -190,7 +191,8 @@ export const useChatSocket = ({
 
     const sendMessage = (
         text: string,
-        clientMessageId: string
+        clientMessageId: string,
+        replyTo?: { _id: string, text: string | null, messageType: string } | null
     ) => {
         /*
          * Immediately show the bubble.
@@ -207,6 +209,8 @@ export const useChatSocket = ({
             text,
 
             mediaUrl: null,
+
+            replyTo,
 
             status: "sending",
 
@@ -269,6 +273,7 @@ export const useChatSocket = ({
                 chatId,
                 text,
                 clientMessageId,
+                replyTo: replyTo?._id,
             },
             (
                 response: {
@@ -300,19 +305,29 @@ export const useChatSocket = ({
                  * Replace optimistic message.
                  */
                 clearTimeout(timeout);
-                setMessages((previous) =>
-                    previous.map((m) =>
-                        m.clientMessageId ===
-                            clientMessageId
-                            ? response.message!
-                            : m
-                    )
-                );
+                    setMessages((previous) =>
+                        previous.map((m) =>
+                            m.clientMessageId ===
+                                clientMessageId
+                                ? {
+                                      ...response.message!,
+                                      status: m.status === 'seen' ? 'seen' : response.message!.status,
+                                      seenAt: m.seenAt || response.message!.seenAt,
+                                  }
+                                : m
+                        )
+                    );
             }
         );
     };
 
-    const sendMedia = async (file: File, previewUrl: string, clientMessageId: string, messageType: "image" | "sticker" | "voice" = "image") => {
+    const sendMedia = async (
+        file: File,
+        previewUrl: string,
+        clientMessageId: string,
+        messageType: "image" | "voice" = "image",
+        replyTo?: { _id: string, text: string | null, messageType: string } | null
+    ) => {
         const optimistic: Message = {
             _id: clientMessageId,
             chat: chatId,
@@ -320,6 +335,7 @@ export const useChatSocket = ({
             messageType,
             text: null,
             mediaUrl: previewUrl,
+            replyTo,
             status: "sending",
             clientMessageId,
             createdAt: new Date().toISOString(),
@@ -336,10 +352,14 @@ export const useChatSocket = ({
         });
 
         try {
-            const response = await sendMediaMessage(chatId, messageType, file, clientMessageId);
+            const response = await sendMediaMessage(chatId, messageType, file, clientMessageId, replyTo?._id);
             setMessages((prev) =>
                 prev.map((m) =>
-                    m.clientMessageId === clientMessageId ? response.message : m
+                    m.clientMessageId === clientMessageId ? {
+                        ...response.message,
+                        status: m.status === 'seen' ? 'seen' : response.message.status,
+                        seenAt: m.seenAt || response.message.seenAt,
+                    } : m
                 )
             );
         } catch (error) {
@@ -362,8 +382,7 @@ export const useChatSocket = ({
         } else if (
             failedMessage.mediaUrl &&
             (failedMessage.messageType === "image" ||
-             failedMessage.messageType === "sticker" ||
-             failedMessage.messageType === "voice")
+                failedMessage.messageType === "voice")
         ) {
             fetch(failedMessage.mediaUrl)
                 .then((res) => res.blob())
@@ -371,7 +390,7 @@ export const useChatSocket = ({
                     const ext = failedMessage.messageType === "voice" ? "webm" : "png";
                     const mime = failedMessage.messageType === "voice" ? "audio/webm" : blob.type;
                     const file = new File([blob], `retry.${ext}`, { type: mime });
-                    sendMedia(file, failedMessage.mediaUrl!, failedMessage.clientMessageId!, failedMessage.messageType as "image" | "sticker" | "voice");
+                    sendMedia(file, failedMessage.mediaUrl!, failedMessage.clientMessageId!, failedMessage.messageType as "image" | "voice");
                 })
                 .catch((err) => console.error("Retry failed:", err));
         }

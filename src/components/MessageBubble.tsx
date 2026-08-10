@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Check,
@@ -10,16 +10,24 @@ import {
     X,
     Check as SaveIcon,
     Volume2,
+    MoreVertical,
+    Reply,
+    Copy,
+    Info,
 } from "lucide-react";
 import type { Message } from "@/types/message.types";
 import { editMessage, deleteMessageForMe, deleteMessageForEveryone } from "@/api/message.api";
 import { cn } from "@/lib/utils";
+import VoicePlayer from "./VoicePlayer";
 
 interface Props {
     message: Message;
     isMine: boolean;
     onDeleteLocal: (messageId: string) => void;
     onRetry?: (message: Message) => void;
+    onReply?: (message: Message) => void;
+    onEditLocal?: (messageId: string, newText: string) => void;
+    onDeleteForEveryoneLocal?: (messageId: string) => void;
 }
 
 const MessageBubble = ({
@@ -27,13 +35,19 @@ const MessageBubble = ({
     isMine,
     onDeleteLocal,
     onRetry,
+    onReply,
+    onEditLocal,
+    onDeleteForEveryoneLocal,
 }: Props) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(message.text || "");
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [showActions, setShowActions] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
+    const [showImageModal, setShowImageModal] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isWithin15Mins =
         Date.now() - new Date(message.createdAt).getTime() < 15 * 60 * 1000;
@@ -54,6 +68,7 @@ const MessageBubble = ({
         try {
             setIsDeleting(true);
             await deleteMessageForEveryone(message._id);
+            onDeleteForEveryoneLocal?.(message._id);
         } catch (error) {
             console.error("Failed to delete for everyone:", error);
         } finally {
@@ -77,6 +92,7 @@ const MessageBubble = ({
         try {
             setIsSaving(true);
             await editMessage(message._id, trimmed);
+            onEditLocal?.(message._id, trimmed);
             setIsEditing(false);
         } catch (error) {
             console.error("Failed to edit message:", error);
@@ -93,6 +109,40 @@ const MessageBubble = ({
             setEditText(message.text || "");
         }
     };
+
+    const handleCopy = () => {
+        if (message.text) {
+            navigator.clipboard.writeText(message.text);
+        }
+        setIsMenuOpen(false);
+    };
+
+    const handleTouchStart = useCallback(() => {
+        if (isMenuOpen || isEditing) return;
+        longPressTimerRef.current = setTimeout(() => {
+            setIsMenuOpen(true);
+        }, 500); // 500ms long press
+    }, [isMenuOpen, isEditing]);
+
+    const handleTouchEnd = useCallback(() => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+        }
+    }, []);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        if (!isMenuOpen) return;
+        
+        const closeMenu = () => setIsMenuOpen(false);
+        window.addEventListener("click", closeMenu);
+        window.addEventListener("touchstart", closeMenu);
+        
+        return () => {
+            window.removeEventListener("click", closeMenu);
+            window.removeEventListener("touchstart", closeMenu);
+        };
+    }, [isMenuOpen]);
 
     const timeString = new Date(message.createdAt).toLocaleTimeString([], {
         hour: "2-digit",
@@ -124,8 +174,7 @@ const MessageBubble = ({
 
     return (
         <div
-            onMouseEnter={() => setShowActions(true)}
-            onMouseLeave={() => setShowActions(false)}
+            id={`msg-${message._id}`}
             className={cn(
                 "group relative flex w-full my-1 transition-all",
                 isMine ? "justify-end" : "justify-start"
@@ -133,199 +182,371 @@ const MessageBubble = ({
         >
             <div
                 className={cn(
-                    "flex flex-col max-w-[82%] sm:max-w-[70%]",
-                    isMine ? "items-end" : "items-start"
+                    "flex max-w-[85%] sm:max-w-[75%] items-center gap-2",
+                    isMine ? "flex-row-reverse" : "flex-row"
                 )}
             >
-                {/* Main Bubble Container */}
                 <div
                     className={cn(
-                        "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-200 shadow-sm",
-                        isMine
-                            ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-[4px] shadow-indigo-500/10 font-normal"
-                            : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-[4px] shadow-xs"
+                        "flex flex-col relative",
+                        isMine ? "items-end" : "items-start"
                     )}
                 >
-                    {/* Content Rendering based on Type */}
-                    {message.messageType === "text" && (
-                        <div>
-                            {isEditing ? (
-                                <div className="flex items-center gap-1.5 my-0.5">
-                                    <input
-                                        ref={inputRef}
-                                        value={editText}
-                                        onChange={(e) => setEditText(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        disabled={isSaving}
-                                        className="bg-white/20 text-white rounded-lg px-2.5 py-1 text-sm outline-none border border-white/40 focus:ring-2 focus:ring-white/50 min-w-[180px]"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleSave}
-                                        disabled={isSaving}
-                                        className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
-                                        title="Save edit"
-                                    >
-                                        <SaveIcon className="size-3.5" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsEditing(false);
-                                            setEditText(message.text || "");
-                                        }}
-                                        className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
-                                        title="Cancel edit"
-                                    >
-                                        <X className="size-3.5" />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="break-words whitespace-pre-wrap">
-                                    {message.text}
-                                    {message.isEdited && (
-                                        <span
-                                            className={cn(
-                                                "text-[10px] ml-1.5 opacity-75 font-normal italic",
-                                                isMine ? "text-white/80" : "text-muted-foreground"
-                                            )}
-                                        >
-                                            (edited)
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Image / Sticker Attachments */}
-                    {(message.messageType === "image" || message.messageType === "sticker") && (
-                        <div className="rounded-xl overflow-hidden my-0.5 max-w-[260px] sm:max-w-[320px]">
-                            <img
-                                src={message.mediaUrl!}
-                                alt={message.messageType}
-                                className="w-full h-auto object-cover rounded-xl shadow-xs transition-transform duration-200 hover:scale-102 cursor-pointer"
-                                onClick={() => window.open(message.mediaUrl!, "_blank")}
-                            />
-                        </div>
-                    )}
-
-                    {/* Voice Note Audio Player */}
-                    {message.messageType === "voice" && (
-                        <div
-                            className={cn(
-                                "flex items-center gap-3 p-1.5 rounded-xl min-w-[220px]",
-                                isMine ? "bg-white/10" : "bg-secondary/70"
-                            )}
-                        >
-                            <div
-                                className={cn(
-                                    "size-8 rounded-full flex items-center justify-center shrink-0",
-                                    isMine ? "bg-white/20 text-white" : "bg-primary text-primary-foreground"
-                                )}
-                            >
-                                <Volume2 className="size-4" />
-                            </div>
-                            <audio
-                                src={message.mediaUrl!}
-                                controls
-                                className="h-8 max-w-[180px] outline-none"
-                            />
-                        </div>
-                    )}
-
-                    {/* Footer Time & Status Receipts */}
+                    {/* Main Bubble Container */}
                     <div
+                        id={`bubble-${message._id}`}
+                        onTouchStart={handleTouchStart}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchEnd}
+                        onContextMenu={(e) => {
+                            // Prevent default context menu to allow our long press on mobile
+                            if (window.matchMedia("(max-width: 768px)").matches) {
+                                e.preventDefault();
+                            }
+                        }}
                         className={cn(
-                            "flex items-center justify-end gap-1 mt-1 text-[10.5px] font-medium leading-none select-none",
-                            isMine ? "text-white/80" : "text-muted-foreground"
+                            "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm",
+                            isMine
+                                ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-[4px] shadow-indigo-500/10 font-normal"
+                                : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-[4px] shadow-xs"
                         )}
                     >
-                        <span>{timeString}</span>
-
-                        {isMine && (
-                            <span className="flex items-center ml-0.5">
-                                {message.status === "sending" && (
-                                    <Clock className="size-3 opacity-70 animate-pulse" />
+                        {/* Reply Snippet */}
+                        {message.replyTo && (
+                            <div
+                                onClick={() => {
+                                    const msgEl = document.getElementById(`msg-${message.replyTo?._id}`);
+                                    const bubbleEl = document.getElementById(`bubble-${message.replyTo?._id}`);
+                                    if (msgEl && bubbleEl) {
+                                        msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        // Different highlight effect: brightness and scale
+                                        bubbleEl.classList.add('brightness-125', 'scale-[1.02]', 'ring-2', 'ring-primary/50', 'ring-offset-2', 'ring-offset-background');
+                                        setTimeout(() => {
+                                            bubbleEl.classList.remove('brightness-125', 'scale-[1.02]', 'ring-2', 'ring-primary/50', 'ring-offset-2', 'ring-offset-background');
+                                        }, 1500);
+                                    }
+                                }}
+                                className={cn(
+                                    "mb-2 p-2 rounded-lg text-[12px] opacity-80 border-l-2 cursor-pointer hover:opacity-100 transition-opacity",
+                                    isMine ? "bg-white/10 border-white/40 text-white" : "bg-black/5 dark:bg-white/5 border-primary text-foreground"
                                 )}
-                                {message.status === "sent" && (
-                                    <Check className="size-3.5 opacity-90 stroke-[2.5]" />
-                                )}
-                                {message.status === "delivered" && (
-                                    <CheckCheck className="size-3.5 opacity-90 stroke-[2.5]" />
-                                )}
-                                {message.status === "seen" && (
-                                    <CheckCheck className="size-3.5 text-cyan-200 dark:text-cyan-300 stroke-[2.5]" />
-                                )}
-                                {message.status === "failed" && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onRetry?.(message)}
-                                        className="text-red-200 hover:text-white transition-colors"
-                                        title="Retry sending"
-                                    >
-                                        <RotateCw className="size-3" />
-                                    </button>
-                                )}
-                            </span>
+                            >
+                                <span className="line-clamp-2 italic">
+                                    {message.replyTo.messageType === "text" ? message.replyTo.text : `[${message.replyTo.messageType}]`}
+                                </span>
+                            </div>
                         )}
-                    </div>
-                </div>
 
-                {/* Floating Quick Action Bar on Hover */}
-                <AnimatePresence>
-                    {showActions && !isEditing && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 2 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 2 }}
-                            transition={{ duration: 0.12 }}
+                        {/* Content Rendering based on Type */}
+                        {message.messageType === "text" && (
+                            <div>
+                                {isEditing ? (
+                                    <div className="flex items-center gap-1.5 my-0.5">
+                                        <input
+                                            ref={inputRef}
+                                            value={editText}
+                                            onChange={(e) => setEditText(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            disabled={isSaving}
+                                            className="bg-white/20 text-white rounded-lg px-2.5 py-1 text-sm outline-none border border-white/40 focus:ring-2 focus:ring-white/50 min-w-[180px]"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleSave}
+                                            disabled={isSaving}
+                                            className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
+                                            title="Save edit"
+                                        >
+                                            <SaveIcon className="size-3.5" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsEditing(false);
+                                                setEditText(message.text || "");
+                                            }}
+                                            className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
+                                            title="Cancel edit"
+                                        >
+                                            <X className="size-3.5" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="break-words whitespace-pre-wrap">
+                                        {message.text}
+                                        {message.isEdited && (
+                                            <span
+                                                className={cn(
+                                                    "text-[10px] ml-1.5 opacity-75 font-normal italic",
+                                                    isMine ? "text-white/80" : "text-muted-foreground"
+                                                )}
+                                            >
+                                                (edited)
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Image Attachments */}
+                        {message.messageType === "image" && (
+                            <div className="rounded-xl overflow-hidden my-0.5 max-w-[260px] sm:max-w-[320px]">
+                                <img
+                                    src={message.mediaUrl!}
+                                    alt={message.messageType}
+                                    className="w-full h-auto object-cover rounded-xl shadow-xs transition-transform duration-200 hover:scale-102 cursor-pointer"
+                                    onClick={() => setShowImageModal(true)}
+                                />
+                            </div>
+                        )}
+
+                        {/* Voice Note Audio Player */}
+                        {message.messageType === "voice" && (
+                            <div
+                                className={cn(
+                                    "flex items-center p-2 rounded-2xl min-w-[200px]",
+                                    isMine ? "bg-white/10 shadow-inner" : "bg-secondary/70 border border-border/50"
+                                )}
+                            >
+                                <VoicePlayer src={message.mediaUrl!} isMine={isMine} />
+                            </div>
+                        )}
+
+                        {/* Footer Time & Status Receipts */}
+                        <div
                             className={cn(
-                                "flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full bg-card/90 dark:bg-card border border-border/80 shadow-xs text-[11px] z-10"
+                                "flex items-center justify-end gap-1 mt-1 text-[10.5px] font-medium leading-none select-none",
+                                isMine ? "text-white/80" : "text-muted-foreground"
                             )}
                         >
-                            {/* Edit Button (only text, for sender) */}
-                            {isMine && message.messageType === "text" && (
+                            <span>{timeString}</span>
+
+                            {isMine && (
+                                <span className="flex items-center gap-0.5 ml-1">
+                                    {message.status === "sending" && (
+                                        <>
+                                            <span className="opacity-70 font-medium">Sending</span>
+                                            <Clock className="size-3 opacity-70 animate-pulse" />
+                                        </>
+                                    )}
+                                    {(message.status === "sent" || message.status === "delivered" as any) && (
+                                        <>
+                                            <span className="opacity-90 font-medium">Sent</span>
+                                            <Check className="size-3.5 opacity-90 stroke-[2.5]" />
+                                        </>
+                                    )}
+                                    {message.status === "seen" && (
+                                        <>
+                                            <span className="text-cyan-200 dark:text-cyan-300 font-medium">Seen</span>
+                                            <CheckCheck className="size-3.5 text-cyan-200 dark:text-cyan-300 stroke-[2.5]" />
+                                        </>
+                                    )}
+                                    {message.status === "failed" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onRetry?.(message)}
+                                            className="text-red-200 hover:text-white transition-colors"
+                                            title="Retry sending"
+                                        >
+                                            <RotateCw className="size-3" />
+                                        </button>
+                                    )}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Floating Dropdown Menu for Actions */}
+                    <AnimatePresence>
+                        {isMenuOpen && !isEditing && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: isMine ? 4 : -4 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: isMine ? 4 : -4 }}
+                                transition={{ duration: 0.15 }}
+                                className={cn(
+                                    "absolute bottom-full mb-1.5 z-40 w-44 rounded-xl border border-border bg-card shadow-lg p-1 space-y-0.5",
+                                    isMine ? "right-0" : "left-0"
+                                )}
+                                onClick={(e) => e.stopPropagation()} // Keep menu open if clicking inside it
+                            >
+                                {/* Reply Option (All) */}
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setEditText(message.text || "");
-                                        setIsEditing(true);
+                                        onReply?.(message);
+                                        setIsMenuOpen(false);
                                     }}
-                                    className="px-2 py-0.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors font-medium flex items-center gap-1"
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors"
                                 >
-                                    <Edit2 className="size-2.5" />
-                                    <span>Edit</span>
+                                    <Reply className="size-3.5 text-muted-foreground" />
+                                    <span>Reply</span>
                                 </button>
-                            )}
 
-                            {/* Delete for Me */}
-                            <button
-                                type="button"
-                                disabled={isDeleting}
-                                onClick={handleDeleteForMe}
-                                className="px-2 py-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors font-medium flex items-center gap-1"
-                            >
-                                <Trash2 className="size-2.5" />
-                                <span>Delete for me</span>
-                            </button>
+                                {/* Copy Option (only for text) */}
+                                {message.messageType === "text" && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCopy}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                                    >
+                                        <Copy className="size-3.5 text-muted-foreground" />
+                                        <span>Copy text</span>
+                                    </button>
+                                )}
 
-                            {/* Delete for Everyone */}
-                            {isMine && isWithin15Mins && (
+                                {/* Message Info Option (All) */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowInfo(true);
+                                        setIsMenuOpen(false);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                                >
+                                    <Info className="size-3.5 text-muted-foreground" />
+                                    <span>Message info</span>
+                                </button>
+
+                                {/* Edit Button (only text, for sender) */}
+                                {isMine && message.messageType === "text" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditText(message.text || "");
+                                            setIsEditing(true);
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                                    >
+                                        <Edit2 className="size-3.5 text-muted-foreground" />
+                                        <span>Edit message</span>
+                                    </button>
+                                )}
+
+                                {/* Delete for Me (All) */}
                                 <button
                                     type="button"
                                     disabled={isDeleting}
-                                    onClick={handleDeleteForEveryone}
-                                    className="px-2 py-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors font-medium flex items-center gap-1"
+                                    onClick={handleDeleteForMe}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
                                 >
-                                    <Trash2 className="size-2.5 text-destructive" />
-                                    <span className="text-destructive font-semibold">For everyone</span>
+                                    <Trash2 className="size-3.5 text-muted-foreground" />
+                                    <span>Delete for me</span>
                                 </button>
-                            )}
-                        </motion.div>
+
+                                {/* Delete for Everyone (only sender) */}
+                                {isMine && isWithin15Mins && (
+                                    <button
+                                        type="button"
+                                        disabled={isDeleting}
+                                        onClick={handleDeleteForEveryone}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                        <span>Delete for everyone</span>
+                                    </button>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+                {/* 3-Dots icon trigger (Desktop hover only) */}
+                <div
+                    className={cn(
+                        "hidden md:flex shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
+                        isMenuOpen && "opacity-100" // Keep visible if menu is open
                     )}
-                </AnimatePresence>
+                >
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsMenuOpen((prev) => !prev);
+                        }}
+                        className="size-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                        aria-label="Message options"
+                    >
+                        <MoreVertical className="size-4" />
+                    </button>
+                </div>
+
             </div>
+
+            {/* Message Info Modal */}
+            <AnimatePresence>
+                {showInfo && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowInfo(false)}>
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full max-w-xs bg-card border border-border rounded-2xl p-5 shadow-2xl relative"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => setShowInfo(false)}
+                                className="absolute top-3 right-3 p-1.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="size-4" />
+                            </button>
+                            <h3 className="font-bold text-lg mb-4 text-foreground">Message Info</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Sent</p>
+                                    <p className="text-sm font-medium mt-1">
+                                        {new Date(message.createdAt).toLocaleString(undefined, {
+                                            dateStyle: 'medium',
+                                            timeStyle: 'short'
+                                        })}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Seen</p>
+                                    <p className="text-sm font-medium mt-1">
+                                        {message.seenAt ? new Date(message.seenAt).toLocaleString(undefined, {
+                                            dateStyle: 'medium',
+                                            timeStyle: 'short'
+                                        }) : "Not seen yet"}
+                                    </p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Media Zoom Modal */}
+            <AnimatePresence>
+                {showImageModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowImageModal(false)}>
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="relative max-w-4xl max-h-screen"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => setShowImageModal(false)}
+                                className="absolute -top-12 right-0 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                            >
+                                <X className="size-6" />
+                            </button>
+                            <img
+                                src={message.mediaUrl!}
+                                alt={message.messageType}
+                                className="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl"
+                            />
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

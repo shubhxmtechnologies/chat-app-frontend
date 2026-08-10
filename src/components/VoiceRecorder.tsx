@@ -1,4 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { Mic, Square, Trash2, Send, Play, Pause, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface Props {
     onSendVoice: (file: File, previewUrl: string, clientMessageId: string) => void;
@@ -125,7 +129,16 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
     };
 
     useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Enter" && audioUrl && audioBlob) {
+                e.preventDefault();
+                handleSend();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
         return () => {
+            window.removeEventListener("keydown", handleKeyDown);
             stopTracks();
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -134,7 +147,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                 URL.revokeObjectURL(audioUrl);
             }
         };
-    }, [audioUrl]);
+    }, [audioUrl, audioBlob]);
 
     const formatTime = (secs: number) => {
         const m = Math.floor(secs / 60);
@@ -143,42 +156,107 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
     };
 
     return (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px", background: "#f3f4f6", borderRadius: "8px" }}>
+        <div className="flex items-center gap-2 p-1.5 w-full bg-background rounded-2xl shadow-sm border border-border/50">
             {micError && (
-                <div style={{ color: "#ef4444", fontSize: "12px", marginBottom: "8px", padding: "4px 8px", background: "#fef2f2", borderRadius: "4px" }}>
+                <div className="text-destructive text-xs mb-2 px-2 py-1 bg-destructive/10 rounded-md w-full">
                     {micError}
                 </div>
             )}
             {!audioUrl ? (
                 <>
-                    {isRecording ? (
-                        <button type="button" onClick={stopRecording} style={{ background: "#ef4444", color: "white", padding: "4px 8px", borderRadius: "4px", border: "none" }}>
-                            Stop
-                        </button>
-                    ) : (
-                        <button type="button" onClick={startRecording} style={{ background: "#10b981", color: "white", padding: "4px 8px", borderRadius: "4px", border: "none" }}>
-                            Start Recording
-                        </button>
-                    )}
+                    <AnimatePresence mode="popLayout">
+                        {isRecording ? (
+                            <motion.div
+                                key="stop"
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
+                            >
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    onClick={stopRecording}
+                                    className="size-8 rounded-full shrink-0 shadow-sm animate-pulse"
+                                >
+                                    <Square className="size-3.5 fill-current" />
+                                </Button>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="start"
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
+                            >
+                                <Button
+                                    type="button"
+                                    variant="default"
+                                    size="icon"
+                                    onClick={startRecording}
+                                    className="size-8 rounded-full shrink-0 shadow-sm bg-pink-500 hover:bg-pink-600 text-white"
+                                >
+                                    <Mic className="size-3.5" />
+                                </Button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-                    <span style={{ color: isRecording ? "#ef4444" : "gray", fontWeight: "bold", minWidth: "40px" }}>
-                        {formatTime(recordingTime)}
-                    </span>
+                    <div className="flex-1 flex items-center gap-3 px-2">
+                        {isRecording && (
+                            <motion.span
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="size-2 bg-destructive rounded-full animate-ping"
+                            />
+                        )}
+                        <span className={cn("text-sm font-semibold tabular-nums tracking-wide transition-colors duration-300", isRecording ? "text-destructive" : "text-muted-foreground")}>
+                            {formatTime(recordingTime)}
+                        </span>
+                        <div className="flex-1" />
+                    </div>
 
-                    <button type="button" onClick={handleDiscard} style={{ background: "transparent", border: "none", color: "gray" }}>
-                        Cancel
-                    </button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleDiscard}
+                        className="size-8 rounded-full text-muted-foreground hover:text-destructive shrink-0"
+                        title="Cancel"
+                    >
+                        <X className="size-4" />
+                    </Button>
                 </>
             ) : (
-                <>
-                    <audio src={audioUrl} controls style={{ height: "30px", flex: 1 }} />
-                    <button type="button" onClick={handleDiscard} style={{ background: "#ef4444", color: "white", padding: "4px 8px", borderRadius: "4px", border: "none" }}>
-                        Discard
-                    </button>
-                    <button type="button" onClick={handleSend} style={{ background: "#0ea5e9", color: "white", padding: "4px 8px", borderRadius: "4px", border: "none" }}>
+                <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 w-full"
+                >
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleDiscard}
+                        className="size-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
+                        title="Discard"
+                    >
+                        <Trash2 className="size-4" />
+                    </Button>
+                    
+                    <div className="flex-1 bg-secondary/40 rounded-full px-2 flex items-center h-8">
+                        <audio src={audioUrl} controls className="h-6 w-full max-w-[200px]" style={{ filter: "sepia(20%) saturate(70%) grayscale(1) contrast(99%) invert(12%)" }} />
+                    </div>
+                    
+                    <Button
+                        type="button"
+                        onClick={handleSend}
+                        className="h-8 px-3 rounded-full bg-gradient-chat-sender hover:opacity-90 text-white text-xs font-semibold shrink-0 gap-1.5 transition-all shadow-md active:scale-95"
+                    >
                         Send
-                    </button>
-                </>
+                        <Send className="size-3" />
+                    </Button>
+                </motion.div>
             )}
         </div>
     );

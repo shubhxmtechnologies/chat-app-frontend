@@ -5,13 +5,21 @@ export interface Message {
 
     sender: string;
 
-    messageType: "text" | "image" | "sticker" | "voice";
+    messageType: "text" | "image" | "voice";
 
     text: string | null;
 
     mediaUrl: string | null;
 
-    status: "sending" | "sent" | "delivered" | "seen" | "failed";
+    replyTo?: {
+        _id: string;
+        text: string | null;
+        messageType: string;
+    } | null;
+
+    status: "sending" | "sent" | "seen" | "failed";
+
+    seenAt?: string | null;
 
     clientMessageId: string | null;
 

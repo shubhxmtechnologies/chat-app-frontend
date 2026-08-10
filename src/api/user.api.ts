@@ -209,3 +209,31 @@ export const getBlockedUsers = async (): Promise<SearchUser[]> => {
         throw error;
     }
 };
+
+export const toggleGlobalMute = async (): Promise<boolean> => {
+    try {
+        const response = await axiosClient.patch("/users/me/mute/global");
+        return response.data.globalMute;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                error.response?.data?.message ?? "Failed to toggle global mute"
+            );
+        }
+        throw error;
+    }
+};
+
+export const toggleChatMute = async (chatId: string): Promise<string[]> => {
+    try {
+        const response = await axiosClient.post(`/users/me/mute/chat/${chatId}`);
+        return response.data.mutedChats;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                error.response?.data?.message ?? "Failed to toggle chat mute"
+            );
+        }
+        throw error;
+    }
+};

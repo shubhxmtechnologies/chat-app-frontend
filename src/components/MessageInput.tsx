@@ -2,30 +2,27 @@ import {
     useState,
     useRef,
     type FormEvent,
+    useEffect,
 } from "react";
 import {
     Send,
-    Plus,
-    Smile,
-    Image as ImageIcon,
     Mic,
     X,
-    Sparkles,
+    Image as ImageIcon,
 } from "lucide-react";
 
-import StickerPicker from "./StickerPicker";
 import VoiceRecorder from "./VoiceRecorder";
-import EmojiPicker from "./EmojiPicker";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Props {
+    replyingTo?: { _id: string, text: string | null, messageType: string } | null;
+    onCancelReply?: () => void;
     onSend: (text: string, clientMessageId: string) => void;
     onSendMedia?: (
         file: File,
         previewUrl: string,
-        clientMessageId: string,
-        messageType?: "image" | "sticker" | "voice"
+        messageType?: "image" | "voice"
     ) => void;
     onTyping: () => void;
     onStopTyping: () => void;
@@ -35,6 +32,8 @@ interface Props {
 }
 
 const MessageInput = ({
+    replyingTo,
+    onCancelReply,
     onSend,
     onSendMedia,
     onTyping,
@@ -46,34 +45,36 @@ const MessageInput = ({
     const [text, setText] = useState("");
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
-    const [showStickers, setShowStickers] = useState(false);
     const [showVoice, setShowVoice] = useState(false);
-    const [showEmojis, setShowEmojis] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     const fileRef = useRef<HTMLInputElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const handleEmojiSelect = (emoji: string) => {
-        try {
-            if (inputRef.current) {
-                const start = inputRef.current.selectionStart ?? text.length;
-                const end = inputRef.current.selectionEnd ?? text.length;
+    useEffect(() => {
+        if (replyingTo && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [replyingTo]);
 
-                const newText = text.substring(0, start) + emoji + text.substring(end);
-                setText(newText);
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
 
-                window.setTimeout(() => {
-                    if (inputRef.current) {
-                        inputRef.current.focus();
-                        inputRef.current.setSelectionRange(start + emoji.length, start + emoji.length);
-                    }
-                }, 0);
-            } else {
-                setText((prev) => prev + emoji);
-            }
-            onTyping();
-        } catch (error) {
-            console.error("Failed to insert emoji:", error);
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const droppedFile = e.dataTransfer.files?.[0];
+        if (droppedFile && droppedFile.type.startsWith("image/")) {
+            setFile(droppedFile);
+            setPreview(URL.createObjectURL(droppedFile));
+            setTimeout(() => inputRef.current?.focus(), 0);
         }
     };
 
@@ -89,24 +90,13 @@ const MessageInput = ({
         }
     };
 
-    const handleSendSticker = (stickerFile: File, stickerUrl: string, clientMessageId: string) => {
-        try {
-            if (onSendMedia) {
-                onSendMedia(stickerFile, stickerUrl, clientMessageId, "sticker");
-                setShowStickers(false);
-                onStopTyping();
-            }
-        } catch (error) {
-            console.error("Failed to trigger sticker send:", error);
-        }
-    };
-
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         try {
             const f = e.target.files?.[0];
             if (f) {
                 setFile(f);
                 setPreview(URL.createObjectURL(f));
+                setTimeout(() => inputRef.current?.focus(), 0);
             }
         } catch (error) {
             console.error("Failed to load file preview:", error);
@@ -115,7 +105,6 @@ const MessageInput = ({
 
     const cancelFile = () => {
         setFile(null);
-        if (preview) URL.revokeObjectURL(preview);
         setPreview(null);
         if (fileRef.current) fileRef.current.value = "";
     };
@@ -166,20 +155,36 @@ const MessageInput = ({
     }
 
     return (
-        <form onSubmit={submit} className="flex flex-col gap-2 w-full">
-            {/* Sticker / Emoji Panels */}
-            {showStickers && !showVoice && (
-                <div className="p-2 rounded-xl border border-border bg-card shadow-lg mb-1">
-                    <StickerPicker onSendSticker={handleSendSticker} />
+        <form
+            onSubmit={submit}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={cn(
+                "flex flex-col gap-2 w-full relative p-2.5 rounded-3xl transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border",
+                isDragging ? "bg-primary/5 border-primary ring-2 ring-primary/50" : "bg-card border-border/60"
+            )}
+        >
+            {isDragging && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary/60 text-primary font-medium pointer-events-none">
+                    Drop your image here
                 </div>
             )}
-
-            {showEmojis && !showVoice && (
-                <div className="p-2 rounded-xl border border-border bg-card shadow-lg mb-1">
-                    <EmojiPicker onSelect={handleEmojiSelect} />
+            
+            {/* Reply Preview Box */}
+            {replyingTo && (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-primary/10 border-l-4 border-primary">
+                    <div className="flex flex-col overflow-hidden">
+                        <span className="text-xs font-semibold text-primary">Replying to message</span>
+                        <span className="text-sm truncate text-muted-foreground">
+                            {replyingTo.messageType === "text" ? replyingTo.text : `[${replyingTo.messageType}]`}
+                        </span>
+                    </div>
+                    <button type="button" onClick={onCancelReply} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-muted-foreground transition-colors">
+                        <X className="size-4" />
+                    </button>
                 </div>
             )}
-
             {/* Voice Recorder Overlay */}
             {showVoice && (
                 <div className="p-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 mb-1">
@@ -210,7 +215,7 @@ const MessageInput = ({
             )}
 
             {/* Input Toolbar */}
-            <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-card border border-border/80 shadow-xs focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
+            <div className="flex items-center gap-1.5 p-1 rounded-[20px] bg-transparent focus-within:ring-0 transition-all">
                 <input
                     type="file"
                     accept="image/*"
@@ -229,38 +234,6 @@ const MessageInput = ({
                     className="size-9 rounded-xl text-muted-foreground hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors shrink-0"
                 >
                     <ImageIcon className="size-4" />
-                </Button>
-
-                {/* Stickers Button */}
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={showVoice}
-                    onClick={() => {
-                        setShowStickers((prev) => !prev);
-                        setShowEmojis(false);
-                    }}
-                    aria-label="Stickers"
-                    className="size-9 rounded-xl text-muted-foreground hover:text-purple-500 hover:bg-purple-500/10 transition-colors shrink-0"
-                >
-                    <Sparkles className="size-4" />
-                </Button>
-
-                {/* Emojis Button */}
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={showVoice}
-                    onClick={() => {
-                        setShowEmojis((prev) => !prev);
-                        setShowStickers(false);
-                    }}
-                    aria-label="Emoji Picker"
-                    className="size-9 rounded-xl text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors shrink-0"
-                >
-                    <Smile className="size-4" />
                 </Button>
 
                 {/* Voice Note Button */}

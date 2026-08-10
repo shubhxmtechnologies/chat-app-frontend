@@ -34,9 +34,10 @@ export const getMessages = async (
 
 export const sendMediaMessage = async (
     chatId: string,
-    messageType: "image" | "sticker" | "voice",
+    messageType: "image" | "voice",
     file: File,
-    clientMessageId: string
+    clientMessageId: string,
+    replyTo?: string
 ): Promise<{ message: Message }> => {
     try {
         const formData = new FormData();
@@ -44,6 +45,7 @@ export const sendMediaMessage = async (
         formData.append("messageType", messageType);
         formData.append("media", file);
         formData.append("clientMessageId", clientMessageId);
+        if (replyTo) formData.append("replyTo", replyTo);
 
         const response = await axiosClient.post("/messages/media", formData);
         return response.data;
@@ -101,13 +103,15 @@ export const deleteMessageForEveryone = async (messageId: string): Promise<void>
 export const sendMessage = async (
     chatId: string,
     text: string,
-    clientMessageId?: string
+    clientMessageId?: string,
+    replyTo?: string
 ): Promise<{ message: Message }> => {
     try {
         const response = await axiosClient.post("/messages", {
             chatId,
             text,
             clientMessageId,
+            replyTo,
         });
         return response.data;
     } catch (error) {

@@ -33,12 +33,22 @@ export const PresenceProvider = ({ children }: { children: ReactNode }) => {
             }));
         };
 
+        const handleInitialOnline = (userIds: string[]) => {
+            setOnlineUsers((prev) => {
+                const next = new Set(prev);
+                userIds.forEach(id => next.add(id));
+                return next;
+            });
+        };
+
         socket.on("user_online", handleOnline);
         socket.on("user_offline", handleOffline);
+        socket.on("initial_online_users", handleInitialOnline);
 
         return () => {
             socket.off("user_online", handleOnline);
             socket.off("user_offline", handleOffline);
+            socket.off("initial_online_users", handleInitialOnline);
         };
     }, []);
 
