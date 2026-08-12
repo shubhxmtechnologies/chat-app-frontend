@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ChangeEvent, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User,
@@ -443,6 +443,16 @@ const Register = () => {
                                             )}
                                         </Button>
                                     </div>
+
+                                    <p className="mt-6 text-center text-xs text-muted-foreground">
+                                        Already have an account?{" "}
+                                        <Link
+                                            to="/login"
+                                            className="font-bold text-primary hover:underline transition-all ml-1"
+                                        >
+                                            Sign in
+                                        </Link>
+                                    </p>
                                 </motion.div>
                             )}
 
