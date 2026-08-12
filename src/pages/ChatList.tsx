@@ -18,9 +18,9 @@ import {
     ArrowRight,
     Bell,
     BellOff,
-    Maximize2,
-    Minimize2,
 } from "lucide-react";
+
+import { playReceiveSound } from "@/utils/sound.util";
 
 import { getUserChats, createOrGetChat, deleteChatForMe, deleteChatForEveryone } from "@/api/chat.api";
 import { searchUsers, toggleGlobalMute, type SearchUser } from "@/api/user.api";
@@ -125,43 +125,6 @@ const ChatList = () => {
         }
     };
 
-    const [isFullscreen, setIsFullscreen] = useState(
-        typeof document !== "undefined" ? Boolean(document.fullscreenElement) : false
-    );
-
-    // Fullscreen change listener
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(Boolean(document.fullscreenElement));
-        };
-        document.addEventListener("fullscreenchange", handleFullscreenChange);
-        document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-        return () => {
-            document.removeEventListener("fullscreenchange", handleFullscreenChange);
-            document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-        };
-    }, []);
-
-    const toggleFullscreen = async () => {
-        try {
-            if (!document.fullscreenElement) {
-                if (document.documentElement.requestFullscreen) {
-                    await document.documentElement.requestFullscreen();
-                } else if ((document.documentElement as any).webkitRequestFullscreen) {
-                    await (document.documentElement as any).webkitRequestFullscreen();
-                }
-            } else {
-                if (document.exitFullscreen) {
-                    await document.exitFullscreen();
-                } else if ((document as any).webkitExitFullscreen) {
-                    await (document as any).webkitExitFullscreen();
-                }
-            }
-        } catch (err) {
-            console.warn("Fullscreen toggle error:", err);
-        }
-    };
-
     useEffect(() => {
         void fetchChats();
     }, []);
@@ -246,8 +209,7 @@ const ChatList = () => {
                     try {
                         const currentUser = userRef.current;
                         if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
-                            const audio = new Audio("/notification.wav");
-                            audio.play().catch(() => { });
+                            playReceiveSound();
                         }
                     } catch { }
                 }
@@ -455,22 +417,6 @@ const ChatList = () => {
                         >
                             <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
                         </Button> */}
-
-                        {/* Fullscreen Toggle Action */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={toggleFullscreen}
-                            className="size-9 text-muted-foreground hover:text-foreground"
-                            aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
-                            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
-                        >
-                            {isFullscreen ? (
-                                <Minimize2 className="size-4" />
-                            ) : (
-                                <Maximize2 className="size-4" />
-                            )}
-                        </Button>
 
                         {/* Theme Toggle Button */}
                         <ThemeToggle />

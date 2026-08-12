@@ -11,11 +11,10 @@ import {
     Copy,
     Check,
     X,
-    Maximize2,
-    Minimize2,
     Bell,
     BellOff,
     MessageCircle,
+    Maximize2,
 } from "lucide-react";
 
 import { blockUser, unblockUser, toggleChatMute } from "@/api/user.api";
@@ -55,9 +54,7 @@ const ChatView = () => {
     const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
     const [showNewMessagePill, setShowNewMessagePill] = useState(false);
     const [isBlocking, setIsBlocking] = useState(false);
-    const [isFullscreen, setIsFullscreen] = useState(
-        typeof document !== "undefined" ? Boolean(document.fullscreenElement) : false
-    );
+   
 
     // Profile Details & Full DP Lightbox Modals
     const [showProfileModal, setShowProfileModal] = useState(false);
@@ -189,39 +186,6 @@ const ChatView = () => {
             setTimeout(() => setCopiedHandle(false), 2000);
         } catch (err) {
             console.error("Failed to copy handle:", err);
-        }
-    };
-
-    // Fullscreen change listener
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(Boolean(document.fullscreenElement));
-        };
-        document.addEventListener("fullscreenchange", handleFullscreenChange);
-        document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-        return () => {
-            document.removeEventListener("fullscreenchange", handleFullscreenChange);
-            document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-        };
-    }, []);
-
-    const toggleFullscreen = async () => {
-        try {
-            if (!document.fullscreenElement) {
-                if (document.documentElement.requestFullscreen) {
-                    await document.documentElement.requestFullscreen();
-                } else if ((document.documentElement as any).webkitRequestFullscreen) {
-                    await (document.documentElement as any).webkitRequestFullscreen();
-                }
-            } else {
-                if (document.exitFullscreen) {
-                    await document.exitFullscreen();
-                } else if ((document as any).webkitExitFullscreen) {
-                    await (document as any).webkitExitFullscreen();
-                }
-            }
-        } catch (err) {
-            console.warn("Fullscreen toggle error:", err);
         }
     };
 
@@ -494,22 +458,6 @@ const ChatView = () => {
                 {/* Header Actions */}
                 {otherUser && (
                     <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                        {/* Fullscreen Toggle Action (Hide browser bars / App mode) */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={toggleFullscreen}
-                            className="size-8 text-muted-foreground hover:text-foreground"
-                            aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
-                            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
-                        >
-                            {isFullscreen ? (
-                                <Minimize2 className="size-4" />
-                            ) : (
-                                <Maximize2 className="size-4" />
-                            )}
-                        </Button>
-
                         {/* Theme Toggle Action */}
                         <ThemeToggle className="size-8" />
 
@@ -649,44 +597,44 @@ const ChatView = () => {
 
                             {/* Bio details */}
                             <div className="px-6 pb-6">
-                            <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
-                                <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
-                                {otherUser.bio || "No bio provided."}
-                            </div>
+                                <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
+                                    <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
+                                    {otherUser.bio || "No bio provided."}
+                                </div>
 
-                            {/* Actions in Profile Modal */}
-                            <div className="flex gap-2 pt-4">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1 rounded-xl text-xs font-semibold"
-                                    onClick={() => {
-                                        setShowProfileModal(false);
-                                        setShowFullDp(true);
-                                    }}
-                                >
-                                    <Maximize2 className="size-3.5 mr-1.5" />
-                                    <span>View Photo</span>
-                                </Button>
+                                {/* Actions in Profile Modal */}
+                                <div className="flex gap-2 pt-4">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 rounded-xl text-xs font-semibold"
+                                        onClick={() => {
+                                            setShowProfileModal(false);
+                                            setShowFullDp(true);
+                                        }}
+                                    >
+                                        <Maximize2 className="size-3.5 mr-1.5" />
+                                        <span>View Photo</span>
+                                    </Button>
 
-                                <Button
-                                    variant={chat?.blockedByMe ? "secondary" : "destructive"}
-                                    className="flex-1 rounded-xl text-xs font-semibold"
-                                    disabled={isBlocking}
-                                    onClick={handleBlockToggle}
-                                >
-                                    {chat?.blockedByMe ? (
-                                        <>
-                                            <UserCheck className="size-3.5 mr-1.5" />
-                                            <span>Unblock</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <UserX className="size-3.5 mr-1.5" />
-                                            <span>Block Contact</span>
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
+                                    <Button
+                                        variant={chat?.blockedByMe ? "secondary" : "destructive"}
+                                        className="flex-1 rounded-xl text-xs font-semibold"
+                                        disabled={isBlocking}
+                                        onClick={handleBlockToggle}
+                                    >
+                                        {chat?.blockedByMe ? (
+                                            <>
+                                                <UserCheck className="size-3.5 mr-1.5" />
+                                                <span>Unblock</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserX className="size-3.5 mr-1.5" />
+                                                <span>Block Contact</span>
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>
@@ -862,7 +810,7 @@ const ChatView = () => {
                                     <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
                                     <span className="size-1.5 bg-primary/70 rounded-full animate-bounce" />
                                 </div>
-                                
+
                             </div>
                         </motion.div>
                     )}

@@ -13,6 +13,8 @@ import {
     Reply,
     Copy,
     Info,
+    Download,
+    Maximize2,
 } from "lucide-react";
 import type { Message } from "@/types/message.types";
 import { editMessage, deleteMessageForMe, deleteMessageForEveryone } from "@/api/message.api";
@@ -45,8 +47,37 @@ const MessageBubble = ({
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
     const [showImageModal, setShowImageModal] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleDownloadImage = async (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (!message.mediaUrl) return;
+        try {
+            setIsDownloading(true);
+            const response = await fetch(message.mediaUrl);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = `pinsta-image-${message._id.slice(-6)}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch {
+            const link = document.createElement("a");
+            link.href = message.mediaUrl;
+            link.target = "_blank";
+            link.download = `pinsta-image-${message._id.slice(-6)}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     const isWithin15Mins =
         Date.now() - new Date(message.createdAt).getTime() < 15 * 60 * 1000;
@@ -288,15 +319,23 @@ const MessageBubble = ({
                             </div>
                         )}
 
-                        {/* Image Attachments */}
+                        {/* Image Attachments with Square Preview */}
                         {message.messageType === "image" && (
-                            <div className="rounded-xl overflow-hidden my-0.5 max-w-65 sm:max-w-[320px]">
+                            <div
+                                className="relative rounded-2xl overflow-hidden my-1 size-44 sm:size-56 aspect-square group/img cursor-pointer bg-black/10 dark:bg-white/5"
+                                onClick={() => setShowImageModal(true)}
+                            >
                                 <img
                                     src={message.mediaUrl!}
-                                    alt={message.messageType}
-                                    className="w-full h-auto object-cover rounded-xl shadow-xs transition-transform duration-200 hover:scale-102 cursor-pointer"
-                                    onClick={() => setShowImageModal(true)}
+                                    alt="Chat media"
+                                    loading="lazy"
+                                    className="size-full object-cover rounded-2xl shadow-xs transition-transform duration-300 group-hover/img:scale-105"
                                 />
+                                <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/img:opacity-100">
+                                    <div className="size-8 rounded-full bg-black/60 text-white flex items-center justify-center backdrop-blur-xs shadow-md">
+                                        <Maximize2 className="size-4" />
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -518,29 +557,53 @@ const MessageBubble = ({
                 )}
             </AnimatePresence>
 
-            {/* Media Zoom Modal */}
+            {/* Media Zoom Modal with Download Button */}
             <AnimatePresence>
                 {showImageModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowImageModal(false)}>
+                    <div
+                        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md p-4"
+                        onClick={() => setShowImageModal(false)}
+                    >
+                        {/* Top Action Bar */}
+                        <div
+                            className="w-full max-w-3xl flex items-center justify-between px-2 py-3 mb-2"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <span className="text-sm font-medium text-white/80">Photo</span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadImage}
+                                    disabled={isDownloading}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors backdrop-blur-xs disabled:opacity-50 cursor-pointer"
+                                >
+                                    <Download className="size-3.5" />
+                                    <span>{isDownloading ? "Downloading..." : "Download"}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowImageModal(false)}
+                                    className="p-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
+                                    aria-label="Close"
+                                >
+                                    <X className="size-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Centered Image */}
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
+                            initial={{ scale: 0.92, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
+                            exit={{ scale: 0.92, opacity: 0 }}
                             transition={{ duration: 0.2 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="relative max-w-4xl max-h-screen"
+                            className="relative max-w-full max-h-[80vh] flex items-center justify-center"
                         >
-                            <button
-                                type="button"
-                                onClick={() => setShowImageModal(false)}
-                                className="absolute -top-12 right-0 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-                            >
-                                <X className="size-6" />
-                            </button>
                             <img
                                 src={message.mediaUrl!}
-                                alt={message.messageType}
-                                className="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl"
+                                alt="Full photo view"
+                                className="max-w-[92vw] max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-white/10"
                             />
                         </motion.div>
                     </div>

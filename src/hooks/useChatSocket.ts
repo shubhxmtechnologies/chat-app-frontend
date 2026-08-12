@@ -15,6 +15,7 @@ interface Props {
 }
 
 import { useAuth } from "../context/AuthContext";
+import { playSendSound, playReceiveSound } from "../utils/sound.util";
 
 export const useChatSocket = ({
     chatId,
@@ -40,8 +41,7 @@ export const useChatSocket = ({
                     try {
                         const currentUser = userRef.current;
                         if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
-                            const audio = new Audio("/notification.wav");
-                            audio.play().catch(() => {});
+                            playReceiveSound();
                         }
                     } catch (e) {}
                 }
@@ -53,8 +53,7 @@ export const useChatSocket = ({
                     try {
                         const currentUser = userRef.current;
                         if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
-                            const audio = new Audio("/notification.wav");
-                            audio.play().catch(() => { });
+                            playReceiveSound();
                         }
                     } catch (e) { }
                 }
@@ -201,6 +200,7 @@ export const useChatSocket = ({
         clientMessageId: string,
         replyTo?: { _id: string, text: string | null, messageType: string } | null
     ) => {
+        playSendSound();
         /*
          * Immediately show the bubble.
          */
@@ -335,6 +335,7 @@ export const useChatSocket = ({
         messageType: "image" | "voice" = "image",
         replyTo?: { _id: string, text: string | null, messageType: string } | null
     ) => {
+        playSendSound();
         const optimistic: Message = {
             _id: clientMessageId,
             chat: chatId,
