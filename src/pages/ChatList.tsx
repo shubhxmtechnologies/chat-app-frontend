@@ -14,7 +14,6 @@ import {
     MoreVertical,
     Sparkles,
     AlertCircle,
-    RefreshCw,
     UserX,
     ArrowRight,
     Bell,
@@ -46,7 +45,6 @@ const ChatList = () => {
     const [chats, setChats] = useState<Chat[]>([]);
     const [typingChats, setTypingChats] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
 
     const [refreshCooldown, setRefreshCooldown] = useState(() => {
@@ -90,7 +88,6 @@ const ChatList = () => {
     const fetchChats = async (isManualRefresh = false, forceRefetch = false) => {
         try {
             if (isManualRefresh) {
-                setRefreshing(true);
                 setRefreshCooldown(true);
                 localStorage.setItem("lastRefreshTime", Date.now().toString());
             } else if (!forceRefetch) {
@@ -107,7 +104,6 @@ const ChatList = () => {
             }
         } finally {
             setLoading(false);
-            setRefreshing(false);
         }
     };
 
