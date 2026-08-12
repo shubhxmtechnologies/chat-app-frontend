@@ -1,23 +1,26 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- H4: Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- H4: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self';
         style-src 'self' 'unsafe-inline';
         img-src 'self' res.cloudinary.com cutiedp.com blob: data:;
-        connect-src 'self' http://localhost:3004 ws://localhost:3004;
+        connect-src 'self' http://localhost:3004 ws://localhost:3004 https://chat.nextgencreators.site wss://chat.nextgencreators.site;
         media-src 'self' res.cloudinary.com blob:;
         font-src 'self';
     ">
-    <title>Pinsta Chat</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <title>Pinsta Chat</title>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
