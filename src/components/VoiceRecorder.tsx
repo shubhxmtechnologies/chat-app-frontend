@@ -3,7 +3,7 @@ import {  Square, Trash2, Send,  X, Circle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
+ 
 interface Props {
     onSendVoice: (file: File, previewUrl: string, clientMessageId: string) => void;
     onCancel: () => void;
