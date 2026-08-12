@@ -4,6 +4,7 @@ import { socket } from "../socket/socketClient";
 
 import type { Message } from "../types/message.types";
 import { sendMediaMessage } from "../api/message.api";
+import { clearChatsCache } from "../api/chat.api";
 interface Props {
     chatId: string;
 
@@ -36,6 +37,7 @@ export const useChatSocket = ({
         const handleReceive = (
             message: Message
         ) => {
+            clearChatsCache();
             if (message.chat !== chatId) {
                 if (message.sender !== currentUserId) {
                     try {
@@ -115,6 +117,7 @@ export const useChatSocket = ({
             seenAt: string;
         }) => {
             if (eventChatId !== chatId) return;
+            clearChatsCache();
 
             setMessages((previous) =>
                 previous.map((m) =>
@@ -128,6 +131,7 @@ export const useChatSocket = ({
 
 
         const handleMessageEdited = (editedMessage: Message) => {
+            clearChatsCache();
             setMessages((previous) =>
                 previous.map((m) =>
                     m._id === editedMessage._id ? editedMessage : m
@@ -137,6 +141,7 @@ export const useChatSocket = ({
 
         const handleMessageDeletedForEveryone = ({ messageId }: { messageId: string }) => {
             try {
+                clearChatsCache();
                 setMessages((previous) =>
                     previous.map((m) =>
                         m._id === messageId
