@@ -9,7 +9,6 @@ import {
     Edit2,
     X,
     Check as SaveIcon,
-    Volume2,
     MoreVertical,
     Reply,
     Copy,
@@ -207,8 +206,8 @@ const MessageBubble = ({
                         className={cn(
                             "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm",
                             isMine
-                                ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-[4px] shadow-indigo-500/10 font-normal"
-                                : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-[4px] shadow-xs"
+                                ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-lg shadow-indigo-500/10 font-normal"
+                                : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-lg shadow-xs"
                         )}
                     >
                         {/* Reply Snippet */}
@@ -248,7 +247,7 @@ const MessageBubble = ({
                                             onChange={(e) => setEditText(e.target.value)}
                                             onKeyDown={handleKeyDown}
                                             disabled={isSaving}
-                                            className="bg-white/20 text-white rounded-lg px-2.5 py-1 text-sm outline-none border border-white/40 focus:ring-2 focus:ring-white/50 min-w-[180px]"
+                                            className="bg-white/20 text-white rounded-lg px-2.5 py-1 text-sm outline-none border border-white/40 focus:ring-2 focus:ring-white/50 min-w-45"
                                         />
                                         <button
                                             type="button"
@@ -272,7 +271,7 @@ const MessageBubble = ({
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="break-words whitespace-pre-wrap">
+                                    <div className="wrap-break-word whitespace-pre-wrap">
                                         {message.text}
                                         {message.isEdited && (
                                             <span
@@ -291,7 +290,7 @@ const MessageBubble = ({
 
                         {/* Image Attachments */}
                         {message.messageType === "image" && (
-                            <div className="rounded-xl overflow-hidden my-0.5 max-w-[260px] sm:max-w-[320px]">
+                            <div className="rounded-xl overflow-hidden my-0.5 max-w-65 sm:max-w-[320px]">
                                 <img
                                     src={message.mediaUrl!}
                                     alt={message.messageType}
@@ -305,7 +304,7 @@ const MessageBubble = ({
                         {message.messageType === "voice" && (
                             <div
                                 className={cn(
-                                    "flex items-center p-2 rounded-2xl min-w-[200px]",
+                                    "flex items-center p-2 rounded-2xl min-w-50",
                                     isMine ? "bg-white/10 shadow-inner" : "bg-secondary/70 border border-border/50"
                                 )}
                             >

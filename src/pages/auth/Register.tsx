@@ -19,12 +19,14 @@ import {
     AlertCircle,
     CheckCircle2,
     X,
+    Loader2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { uploadAvatar } from "@/api/user.api";
+import { checkUsernameAvailability, checkEmailAvailability } from "@/api/auth.api";
 import { cn } from "@/lib/utils";
 import {
     validateUsername,
@@ -57,6 +59,9 @@ const Register = () => {
     });
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    
+    const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
     // Errors & Touched
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -94,12 +99,27 @@ const Register = () => {
     };
 
     // Step 1: Username validation
-    const handleNextFromUsername = () => {
+    const handleNextFromUsername = async () => {
         const error = validateUsername(formData.username);
         if (error) {
             setErrors((prev) => ({ ...prev, username: error }));
             return;
         }
+
+        try {
+            setIsCheckingUsername(true);
+            const { available } = await checkUsernameAvailability(formData.username);
+            if (!available) {
+                setErrors((prev) => ({ ...prev, username: "Username is already taken" }));
+                return;
+            }
+        } catch (err: any) {
+            setErrors((prev) => ({ ...prev, username: err.message || "Failed to check username" }));
+            return;
+        } finally {
+            setIsCheckingUsername(false);
+        }
+
         setErrors({});
         setCurrentStep("name");
     };
@@ -120,7 +140,7 @@ const Register = () => {
     };
 
     // Step 3: Credentials validation
-    const handleNextFromCredentials = () => {
+    const handleNextFromCredentials = async () => {
         const emailError = validateEmail(formData.email);
         const passError = validatePassword(formData.password);
         let matchError: string | null = null;
@@ -136,6 +156,21 @@ const Register = () => {
             });
             return;
         }
+
+        try {
+            setIsCheckingEmail(true);
+            const { available } = await checkEmailAvailability(formData.email);
+            if (!available) {
+                setErrors((prev) => ({ ...prev, email: "Email is already taken" }));
+                return;
+            }
+        } catch (err: any) {
+            setErrors((prev) => ({ ...prev, email: err.message || "Failed to check email" }));
+            return;
+        } finally {
+            setIsCheckingEmail(false);
+        }
+
         setErrors({});
         setCurrentStep("bio");
     };
@@ -155,7 +190,7 @@ const Register = () => {
 
         try {
             await register({
-                username: formData.username.trim(),
+                username: formData.username.trim().toLowerCase(),
                 email: formData.email.trim().toLowerCase(),
                 password: formData.password,
                 firstName: formData.firstName.trim(),
@@ -268,7 +303,7 @@ const Register = () => {
 
                     <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1] text-foreground">
                         Speed. Privacy. <br />
-                        <span className="bg-gradient-chat-sender bg-clip-text text-transparent">
+                        <span className="text-primary">
                             Pure Expression.
                         </span>
                     </h1>
@@ -397,10 +432,17 @@ const Register = () => {
                                         <Button
                                             type="button"
                                             onClick={handleNextFromUsername}
+                                            disabled={isCheckingUsername}
                                             className="w-full h-12 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
                                         >
-                                            <span>Continue to Profile</span>
-                                            <ArrowRight className="size-4" />
+                                            {isCheckingUsername ? (
+                                                <Loader2 className="size-4 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <span>Continue to Profile</span>
+                                                    <ArrowRight className="size-4" />
+                                                </>
+                                            )}
                                         </Button>
                                     </div>
                                 </motion.div>
@@ -650,10 +692,17 @@ const Register = () => {
                                         <Button
                                             type="button"
                                             onClick={handleNextFromCredentials}
+                                            disabled={isCheckingEmail}
                                             className="flex-1 h-12 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
                                         >
-                                            <span>Continue</span>
-                                            <ArrowRight className="size-4" />
+                                            {isCheckingEmail ? (
+                                                <Loader2 className="size-4 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <span>Continue</span>
+                                                    <ArrowRight className="size-4" />
+                                                </>
+                                            )}
                                         </Button>
                                     </div>
                                 </motion.div>

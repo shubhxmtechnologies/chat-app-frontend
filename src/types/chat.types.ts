@@ -43,4 +43,6 @@ export interface Chat {
     blockedByThem: boolean;
 
     updatedAt: string;
+
+    createdBy: string | null;
 }

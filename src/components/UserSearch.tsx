@@ -5,6 +5,7 @@ import {
 } from "react";
 
 import { useNavigate } from "react-router-dom";
+import { Skeleton } from "./ui/skeleton";
 
 import { createOrGetChat } from "../api/chat.api";
 
@@ -112,11 +113,21 @@ const UserSearch = () => {
                 onChange={(e) =>
                     setQuery(e.target.value)
                 }
+                className="w-full p-2 border rounded mb-4"
             />
 
-            {loading && <p>Searching...</p>}
+            {loading && (
+                <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-3 p-2">
+                            <Skeleton className="size-10 rounded-full" />
+                            <Skeleton className="h-4 w-24" />
+                        </div>
+                    ))}
+                </div>
+            )}
 
-            {error && <p>{error}</p>}
+            {error && <p className="text-red-500 text-sm p-2">{error}</p>}
 
             {!loading &&
                 results.map((user) => (

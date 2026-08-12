@@ -117,5 +117,28 @@ export const logout = async () => {
 
         throw error;
     }
+};
 
+export const checkUsernameAvailability = async (username: string) => {
+    try {
+        const response = await axiosClient.post("/auth/check-username", { username });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data?.message ?? "Request failed");
+        }
+        throw error;
+    }
+};
+
+export const checkEmailAvailability = async (email: string) => {
+    try {
+        const response = await axiosClient.post("/auth/check-email", { email });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data?.message ?? "Request failed");
+        }
+        throw error;
+    }
 };

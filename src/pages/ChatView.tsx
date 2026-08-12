@@ -6,7 +6,6 @@ import {
     Loader2,
     ArrowDown,
     AlertCircle,
-    Sparkles,
     UserX,
     UserCheck,
     Copy,
@@ -29,6 +28,7 @@ import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { usePresence } from "@/context/PresenceContext";
 import { getRelativeTime } from "@/utils/time.util";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import MessageBubble from "@/components/MessageBubble";
 import MessageInput from "@/components/MessageInput";
@@ -63,15 +63,14 @@ const ChatView = () => {
     // Unseen messages divider
     const [unseenDividerId, setUnseenDividerId] = useState<string | null>(null);
 
-    const { handleTyping, stopTyping } = useTypingIndicator(chatId ?? "");
+    const otherUser = chat?.participants.find((p) => p._id !== user?.id);
+    const { handleTyping, stopTyping } = useTypingIndicator(chatId ?? "", otherUser?._id);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const previousScrollHeightRef = useRef<number>(0);
     const isNearBottomRef = useRef<boolean>(true);
     const isInitialLoadRef = useRef<boolean>(true);
     const lastMessageIdRef = useRef<string | null>(null);
-
-    const otherUser = chat?.participants.find((p) => p._id !== user?.id);
 
     // Initial data fetch
     const fetchData = async () => {
@@ -389,15 +388,19 @@ const ChatView = () => {
                                     </span>
                                 )}
                             </div>
-                            <p className="text-[11px] leading-tight text-muted-foreground mt-0.5 truncate">
-                                {online ? (
+                            <p className="text-[11px] leading-tight mt-0.5 truncate h-4">
+                                {isTyping ? (
+                                    <span className="text-primary font-medium animate-pulse">
+                                        Typing...
+                                    </span>
+                                ) : online ? (
                                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                                         Online
                                     </span>
                                 ) : lastSeenTime ? (
-                                    `${getRelativeTime(lastSeenTime)}`
+                                    <span className="text-muted-foreground">Last seen {getRelativeTime(lastSeenTime)}</span>
                                 ) : (
-                                    "Offline"
+                                    <span className="text-muted-foreground">Offline</span>
                                 )}
                             </p>
                         </div>
@@ -549,7 +552,7 @@ const ChatView = () => {
                                         )}
                                     />
                                     <span>
-                                        {online ? "Active Now" : lastSeenTime ? `${getRelativeTime(lastSeenTime)}` : "Offline"}
+                                        {online ? "Online" : lastSeenTime ? `Last seen ${getRelativeTime(lastSeenTime)}` : "Offline"}
                                     </span>
                                 </div>
                             </div>
@@ -671,16 +674,13 @@ const ChatView = () => {
                     {/* Older Messages Loading Indicator */}
                     {loadingOlder && (
                         <div className="flex justify-center py-2">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/80 px-3 py-1 rounded-full border border-border/50">
-                                <Loader2 className="size-3 animate-spin" />
-                                <span>Loading older messages...</span>
-                            </div>
+                            <Skeleton className="h-6 w-36 rounded-full" />
                         </div>
                     )}
 
                     {/* Initial Loading Skeletons */}
                     {loading ? (
-                        <div className="space-y-4 py-4 animate-pulse">
+                        <div className="space-y-4 py-4">
                             {[1, 2, 3, 4, 5].map((i) => (
                                 <div
                                     key={i}
@@ -689,9 +689,9 @@ const ChatView = () => {
                                         i % 2 === 0 ? "justify-start" : "justify-end"
                                     )}
                                 >
-                                    <div
+                                    <Skeleton
                                         className={cn(
-                                            "h-10 rounded-2xl bg-muted/70",
+                                            "h-10 rounded-2xl",
                                             i % 2 === 0 ? "w-48" : "w-64"
                                         )}
                                     />
@@ -700,7 +700,7 @@ const ChatView = () => {
                         </div>
                     ) : messages.length === 0 ? (
                         /* Empty Chat State */
-                        <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center px-4 py-10 opacity-70">
+                        <div className="flex flex-col items-center justify-center h-full min-h-75 text-center px-4 py-10 opacity-70">
                             <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
                                 <MessageCircle className="size-8" />
                             </div>
@@ -735,24 +735,7 @@ const ChatView = () => {
                         ))
                     )}
 
-                    {/* Animated Typing Bubble inside Message List */}
-                    <AnimatePresence>
-                        {isTyping && !isBlocked && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: 10, originX: 0, originY: 1 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                                transition={{ duration: 0.2 }}
-                                className="flex justify-start w-full my-1"
-                            >
-                                <div className="bg-card dark:bg-card/90 text-foreground border border-border/80 px-4 py-3.5 rounded-[22px] rounded-bl-lg shadow-xs flex items-center gap-1.5">
-                                    <span className="size-2 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                    <span className="size-2 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                    <span className="size-2 bg-primary/70 rounded-full animate-bounce" />
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+
                 </div>
 
                 {/* Floating "New Message" Scroll Pill */}
@@ -772,6 +755,27 @@ const ChatView = () => {
                     )}
                 </AnimatePresence>
 
+                {/* Typing Indicator Bar (in layout flow above input so it never overlaps messages) */}
+                <AnimatePresence>
+                    {isTyping && !isBlocked && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0, y: 4 }}
+                            animate={{ opacity: 1, height: "auto", y: 0 }}
+                            exit={{ opacity: 0, height: 0, y: 4 }}
+                            transition={{ duration: 0.2 }}
+                            className="px-3 lg:px-4 shrink-0 overflow-hidden"
+                        >
+                            <div className="flex items-center gap-2 py-1">
+                                <div className="bg-card dark:bg-card/90 text-foreground border border-border/80 px-3 py-1.5 rounded-2xl rounded-bl-sm shadow-xs flex items-center gap-1.5 w-fit">
+                                    <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                    <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                    <span className="size-1.5 bg-primary/70 rounded-full animate-bounce" />
+                                </div>
+                                
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Bottom Message Input Bar */}
                 <footer className="p-3 lg:p-4 bg-transparent shrink-0">
@@ -803,6 +807,7 @@ const ChatView = () => {
                         blockedByMe={chat?.blockedByMe}
                         blockedByThem={chat?.blockedByThem}
                         onUnblock={handleBlockToggle}
+                        disabled={loading}
                     />
                 </footer>
             </main>

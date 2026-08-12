@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { socket } from "../socket/socketClient";
 
-export const useTypingIndicator = (chatId: string) => {
+export const useTypingIndicator = (chatId: string, recipientId?: string) => {
     const lastTypingEmitRef = useRef<number>(0);
     const stopTypingTimeoutRef = useRef<number | null>(null);
 
@@ -10,15 +10,19 @@ export const useTypingIndicator = (chatId: string) => {
             clearTimeout(stopTypingTimeoutRef.current);
             stopTypingTimeoutRef.current = null;
         }
-        socket.emit("stop_typing", chatId);
+        if (recipientId) {
+            socket.emit("stop_typing", { chatId, recipientId });
+        }
         lastTypingEmitRef.current = 0;
-    }, [chatId]);
+    }, [chatId, recipientId]);
 
     const handleTyping = useCallback(() => {
         const now = Date.now();
 
         if (now - lastTypingEmitRef.current > 2000) {
-            socket.emit("typing", chatId);
+            if (recipientId) {
+                socket.emit("typing", { chatId, recipientId });
+            }
             lastTypingEmitRef.current = now;
         }
 
@@ -41,9 +45,11 @@ export const useTypingIndicator = (chatId: string) => {
                 clearTimeout(stopTypingTimeoutRef.current);
             }
             // Emit final stop_typing when component unmounts
-            socket.emit("stop_typing", chatId);
+            if (recipientId) {
+                socket.emit("stop_typing", { chatId, recipientId });
+            }
         };
-    }, [chatId]);
+    }, [chatId, recipientId]);
 
     return { handleTyping, stopTyping };
 };

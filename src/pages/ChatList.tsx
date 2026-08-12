@@ -10,7 +10,6 @@ import {
     Loader2,
     Image as ImageIcon,
     Mic,
-    Smile,
     Trash2,
     MoreVertical,
     Sparkles,
@@ -31,6 +30,7 @@ import { socket } from "@/socket/socketClient";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { Chat } from "@/types/chat.types";
 import type { Message } from "@/types/message.types";
@@ -43,6 +43,7 @@ const ChatList = () => {
     const { isOnline, getLastSeen } = usePresence();
 
     const [chats, setChats] = useState<Chat[]>([]);
+    const [typingChats, setTypingChats] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
@@ -85,17 +86,17 @@ const ChatList = () => {
     const searchInputRef = useRef<HTMLInputElement | null>(null);
 
     // Fetch conversations
-    const fetchChats = async (isManualRefresh = false) => {
+    const fetchChats = async (isManualRefresh = false, forceRefetch = false) => {
         try {
             if (isManualRefresh) {
                 setRefreshing(true);
                 setRefreshCooldown(true);
                 localStorage.setItem("lastRefreshTime", Date.now().toString());
-            } else {
+            } else if (!forceRefetch) {
                 setLoading(true);
             }
             setError("");
-            const data = await getUserChats();
+            const data = await getUserChats(isManualRefresh || forceRefetch);
             setChats(data);
         } catch (err) {
             if (err instanceof Error) {
@@ -165,14 +166,20 @@ const ChatList = () => {
         };
     }, [debouncedSearch]);
 
+    const userRef = useRef(user);
+
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
+
     // Real-time socket listeners for incoming messages and read receipts
     useEffect(() => {
         const handleReceiveMessage = (message: Message) => {
             setChats((prev) => {
                 const idx = prev.findIndex((c) => c._id === message.chat);
                 if (idx === -1) {
-                    // New chat started externally — refetch to get populated chat details
-                    void fetchChats();
+                    // New chat started externally — refetch to get populated chat details (bypass cache)
+                    void fetchChats(false, true);
                     return prev;
                 }
 
@@ -201,7 +208,8 @@ const ChatList = () => {
                 // Play subtle sound if message came from another participant
                 if (message.sender !== user?.id) {
                     try {
-                        if (!user?.globalMute && !user?.mutedChats?.includes(message.chat)) {
+                        const currentUser = userRef.current;
+                        if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
                             const audio = new Audio("/notification.wav");
                             audio.play().catch(() => { });
                         }
@@ -228,16 +236,28 @@ const ChatList = () => {
             setChats((prev) => prev.filter((c) => c._id !== chatId));
         };
 
+        const handleUserTyping = ({ chatId }: { chatId: string }) => {
+            setTypingChats(prev => ({ ...prev, [chatId]: true }));
+        };
+
+        const handleUserStopTyping = ({ chatId }: { chatId: string }) => {
+            setTypingChats(prev => ({ ...prev, [chatId]: false }));
+        };
+
         socket.on("receive_message", handleReceiveMessage);
         socket.on("message_seen", handleMessageSeen);
         socket.on("chat_deleted_for_me", handleChatDeletedForMe);
         socket.on("chat_deleted_for_everyone", handleChatDeletedForEveryone);
+        socket.on("user_typing", handleUserTyping);
+        socket.on("user_stop_typing", handleUserStopTyping);
 
         return () => {
             socket.off("receive_message", handleReceiveMessage);
             socket.off("message_seen", handleMessageSeen);
             socket.off("chat_deleted_for_me", handleChatDeletedForMe);
             socket.off("chat_deleted_for_everyone", handleChatDeletedForEveryone);
+            socket.off("user_typing", handleUserTyping);
+            socket.off("user_stop_typing", handleUserStopTyping);
         };
     }, [user?.id]);
 
@@ -349,7 +369,7 @@ const ChatList = () => {
         <div className="min-h-screen w-full bg-background bg-ambient-glow text-foreground flex flex-col items-center">
             {/* Top Navigation Bar */}
             <header className="w-full border-b border-border/80 bg-card/70 backdrop-blur-md sticky top-0 z-20">
-                <div className="max-w-screen-md mx-auto px-4 h-16 flex items-center justify-between">
+                <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
                     {/* Brand */}
                     <div className="flex items-center gap-2.5">
                         <div className="size-10 rounded-2xl bg-gradient-chat-sender flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
@@ -563,29 +583,29 @@ const ChatList = () => {
                             {[1, 2, 3, 4].map((i) => (
                                 <div
                                     key={i}
-                                    className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border/60 bg-card/60 animate-pulse"
+                                    className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border/60 bg-card/60"
                                 >
-                                    <div className="size-12 rounded-full bg-muted shrink-0" />
+                                    <Skeleton className="size-12 rounded-full shrink-0" />
                                     <div className="flex-1 space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <div className="h-4 bg-muted rounded w-1/3" />
-                                            <div className="h-3 bg-muted rounded w-12" />
+                                            <Skeleton className="h-4 w-1/3" />
+                                            <Skeleton className="h-3 w-12" />
                                         </div>
-                                        <div className="h-3.5 bg-muted rounded w-2/3" />
+                                        <Skeleton className="h-3.5 w-2/3" />
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : filteredChats.length === 0 ? (
                         /* Empty State */
-                        <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center text-center p-8 rounded-2xl border border-dashed border-border bg-card/40 my-auto">
+                        <div className="flex-1 min-h-75 flex flex-col items-center justify-center text-center p-8 rounded-2xl border border-dashed border-border bg-card/40 my-auto">
                             <div className="size-14 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground mb-4 shadow-xs">
                                 <Sparkles className="size-7 stroke-[1.5]" />
                             </div>
                             <h2 className="text-base font-semibold text-foreground">
                                 {searchQuery ? "No matching conversations" : "No chats yet"}
                             </h2>
-                            <p className="text-xs text-muted-foreground max-w-[280px] mt-1.5 leading-relaxed">
+                            <p className="text-xs text-muted-foreground max-w-70 mt-1.5 leading-relaxed">
                                 {searchQuery
                                     ? "Try searching for a different username in the search box above to start a new chat."
                                     : "Connect with friends and colleagues. Search for people above to start your first encrypted conversation!"}
@@ -668,13 +688,17 @@ const ChatList = () => {
 
                                                                 {online ? (
                                                                     <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
-                                                                        &bull; Active now
+                                                                        &bull; Online
                                                                     </span>
                                                                 ) : lastSeenTime ? (
                                                                     <span className="text-[11px] text-muted-foreground shrink-0">
-                                                                        &bull; Active {getRelativeTime(lastSeenTime)}
+                                                                        &bull; Last seen {getRelativeTime(lastSeenTime)}
                                                                     </span>
-                                                                ) : null}
+                                                                ) : (
+                                                                    <span className="text-[11px] text-muted-foreground shrink-0">
+                                                                        &bull; Offline
+                                                                    </span>
+                                                                )}
                                                                 {isBlocked && (
                                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium bg-destructive/10 text-destructive">
                                                                         <UserX className="size-2.5" />
@@ -693,8 +717,14 @@ const ChatList = () => {
 
                                                         {/* Message Preview & Unread Badge */}
                                                         <div className="flex items-center justify-between gap-2 mt-1">
-                                                            <div className="text-[13px] leading-tight truncate flex-1">
-                                                                {renderLastMessagePreview(chat)}
+                                                            <div className="text-[13px] leading-tight truncate flex-1 h-4">
+                                                                {typingChats[chat._id] ? (
+                                                                    <span className="text-primary font-medium animate-pulse">
+                                                                        Typing...
+                                                                    </span>
+                                                                ) : (
+                                                                    renderLastMessagePreview(chat)
+                                                                )}
                                                             </div>
 
                                                             {chat.unreadCount > 0 && (
@@ -754,18 +784,22 @@ const ChatList = () => {
                                                                     <Trash2 className="size-3.5 text-muted-foreground" />
                                                                     <span>Delete for me</span>
                                                                 </button>
-                                                                <button
-                                                                    type="button"
-                                                                    disabled={deletingChatId === chat._id}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        void handleDeleteForEveryone(chat._id);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                                                                >
-                                                                    <Trash2 className="size-3.5" />
-                                                                    <span>Delete for both</span>
-                                                                </button>
+                                                                
+                                                                {/* H5: Only show Delete for Both to the creator */}
+                                                                {(chat.createdBy ? chat.createdBy === user?.id : chat.participants[0]?._id === user?.id) && (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={deletingChatId === chat._id}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            void handleDeleteForEveryone(chat._id);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                                                                    >
+                                                                        <Trash2 className="size-3.5" />
+                                                                        <span>Delete for both</span>
+                                                                    </button>
+                                                                )}
                                                             </motion.div>
                                                         </>
                                                     )}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Mic, Square, Trash2, Send, Play, Pause, X } from "lucide-react";
+import { Mic, Square, Trash2, Send, Play, Pause, X, Circle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -196,7 +196,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                                     onClick={startRecording}
                                     className="size-8 rounded-full shrink-0 shadow-sm bg-pink-500 hover:bg-pink-600 text-white"
                                 >
-                                    <Mic className="size-3.5" />
+                                    <Circle className="size-3.5 fill-current" />
                                 </Button>
                             </motion.div>
                         )}
@@ -245,7 +245,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                     </Button>
                     
                     <div className="flex-1 bg-secondary/40 rounded-full px-2 flex items-center h-8">
-                        <audio src={audioUrl} controls className="h-6 w-full max-w-[200px]" style={{ filter: "sepia(20%) saturate(70%) grayscale(1) contrast(99%) invert(12%)" }} />
+                        <audio src={audioUrl} controls className="h-6 w-full max-w-50" style={{ filter: "sepia(20%) saturate(70%) grayscale(1) contrast(99%) invert(12%)" }} />
                     </div>
                     
                     <Button

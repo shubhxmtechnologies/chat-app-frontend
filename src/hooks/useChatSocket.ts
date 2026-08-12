@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
 import { socket } from "../socket/socketClient";
 
@@ -22,6 +22,11 @@ export const useChatSocket = ({
     setMessages,
 }: Props) => {
     const { user } = useAuth();
+    const userRef = useRef(user);
+
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
 
     useEffect(() => {
         socket.emit("join_chat", chatId);
@@ -33,7 +38,8 @@ export const useChatSocket = ({
             if (message.chat !== chatId) {
                 if (message.sender !== currentUserId) {
                     try {
-                        if (!user?.globalMute && !user?.mutedChats?.includes(message.chat)) {
+                        const currentUser = userRef.current;
+                        if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
                             const audio = new Audio("/notification.wav");
                             audio.play().catch(() => {});
                         }
@@ -45,7 +51,8 @@ export const useChatSocket = ({
             setMessages((previous) => {
                 if (message.sender !== currentUserId) {
                     try {
-                        if (!user?.globalMute && !user?.mutedChats?.includes(message.chat)) {
+                        const currentUser = userRef.current;
+                        if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
                             const audio = new Audio("/notification.wav");
                             audio.play().catch(() => { });
                         }

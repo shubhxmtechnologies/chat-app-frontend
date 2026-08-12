@@ -28,6 +28,20 @@ socket.on("disconnect", (reason) => {
     );
 });
 
+// H3: Server emits "auth_error" when token expires or user logs out.
+// AuthContext sets the callback to trigger a full logout.
+let authErrorCallback: (() => void) | null = null;
+
+export const setSocketAuthErrorHandler = (handler: () => void) => {
+    authErrorCallback = handler;
+};
+
+socket.on("auth_error", () => {
+    if (authErrorCallback) {
+        authErrorCallback();
+    }
+});
+
 /*
  * Connect with the latest access token.
  */

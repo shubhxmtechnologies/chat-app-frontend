@@ -143,7 +143,7 @@ const Login = () => {
 
                     <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1] text-foreground">
                         Your encrypted <br />
-                        <span className="bg-gradient-chat-sender bg-clip-text text-transparent">
+                        <span className="text-primary">
                             conversations await.
                         </span>
                     </h1>

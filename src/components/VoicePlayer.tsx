@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Play, Pause } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ const VoicePlayer = ({ src, isMine }: Props) => {
     };
 
     return (
-        <div className="flex items-center gap-2.5 w-full max-w-[220px]">
+        <div className="flex items-center gap-2.5 w-full max-w-55">
             <audio
                 ref={audioRef}
                 src={src}

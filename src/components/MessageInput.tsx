@@ -30,6 +30,7 @@ interface Props {
     blockedByMe?: boolean;
     blockedByThem?: boolean;
     onUnblock?: () => void;
+    disabled?: boolean;
 }
 
 const MessageInput = ({
@@ -42,6 +43,7 @@ const MessageInput = ({
     blockedByMe,
     blockedByThem,
     onUnblock,
+    disabled = false,
 }: Props) => {
     const [text, setText] = useState("");
     const [file, setFile] = useState<File | null>(null);
@@ -202,7 +204,7 @@ const MessageInput = ({
                     <img
                         src={preview}
                         alt="Attachment preview"
-                        className="max-h-24 max-w-[160px] rounded-xl object-cover border border-border shadow-md"
+                        className="max-h-24 max-w-40 rounded-xl object-cover border border-border shadow-md"
                     />
                     <button
                         type="button"
@@ -242,7 +244,7 @@ const MessageInput = ({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    disabled={showVoice || Boolean(file) || text.length > 0}
+                    disabled={showVoice || Boolean(file) || text.length > 0 || disabled}
                     onClick={() => setShowVoice(true)}
                     aria-label="Record voice message"
                     className="size-9 rounded-xl text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 transition-colors shrink-0"
@@ -262,8 +264,8 @@ const MessageInput = ({
                                 setText(e.target.value);
                                 onTyping();
                             }}
-                            disabled={Boolean(file)}
-                            className="flex-1 bg-transparent px-2 text-[14px] text-foreground placeholder:text-muted-foreground outline-none border-none"
+                            disabled={Boolean(file) || disabled}
+                            className="flex-1 bg-transparent px-2 text-[14px] text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50"
                         />
 
                         {/* Vibrant Gradient Send Button */}

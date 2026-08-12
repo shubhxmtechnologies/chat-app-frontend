@@ -38,6 +38,7 @@ import {
     validateBio,
 } from "@/utils/validators";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -369,7 +370,7 @@ const Profile = () => {
         <div className="min-h-screen w-full bg-background bg-ambient-glow text-foreground flex flex-col items-center">
             {/* Top Navigation Bar */}
             <header className="w-full border-b border-border/80 bg-card/70 backdrop-blur-md sticky top-0 z-20">
-                <div className="max-w-[760px] mx-auto px-4 h-16 flex items-center justify-between">
+                <div className="max-w-190 mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Button
                             variant="ghost"
@@ -420,7 +421,7 @@ const Profile = () => {
                             animate={{ scale: 1 }}
                             exit={{ scale: 0.9 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="relative max-w-[420px] w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
+                            className="relative max-w-105 w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
                         >
                             <img
                                 src={currentAvatarUrl}
@@ -440,7 +441,7 @@ const Profile = () => {
             </AnimatePresence>
 
             {/* Main Content Area */}
-            <main className="w-full max-w-[760px] px-4 py-8 flex flex-col gap-6">
+            <main className="w-full max-w-190 px-4 py-8 flex flex-col gap-6">
                 {/* Hero Profile Showcase Card */}
                 <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-6">
                     {/* Avatar with click-to-zoom + upload overlay */}
@@ -909,211 +910,222 @@ const Profile = () => {
                 {/* TAB 3: BLOCKED USERS */}
                 {activeTab === "blocked" && (
                     <>
-                    <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
-                        <div>
-                            <h3 className="text-base font-bold text-foreground">
-                                Blocked Users
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                                Contacts on your blocklist cannot send you messages or see your presence.
-                            </p>
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                            <div>
+                                <h3 className="text-base font-bold text-foreground">
+                                    Blocked Users
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Contacts on your blocklist cannot send you messages or see your presence.
+                                </p>
+                            </div>
+
+                            {loadingBlocked ? (
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-secondary/50 border border-border/60">
+                                            <div className="flex items-center gap-3 w-full">
+                                                <Skeleton className="size-10 rounded-full shrink-0" />
+                                                <div className="flex-1 space-y-2">
+                                                    <Skeleton className="h-4 w-1/3" />
+                                                    <Skeleton className="h-3 w-1/4" />
+                                                </div>
+                                            </div>
+                                            <Skeleton className="h-8 w-24 rounded-xl shrink-0 ml-3" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : blockedUsers.length === 0 ? (
+                                <div className="py-12 text-center text-muted-foreground text-xs italic">
+                                    You haven&apos;t blocked any contacts.
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {blockedUsers.map((bUser) => (
+                                        <div
+                                            key={bUser._id}
+                                            className="flex items-center justify-between p-3 rounded-2xl bg-secondary/50 border border-border/60"
+                                        >
+                                            <div
+                                                className="flex items-center gap-3 cursor-pointer group min-w-0"
+                                                onClick={() => { setViewingBlockedUser(bUser); setCopiedBlockedHandle(false); }}
+                                                title="View profile"
+                                            >
+                                                <img
+                                                    src={bUser.avatarUrl || DEFAULT_AVATAR}
+                                                    alt={bUser.username}
+                                                    className="size-10 rounded-full object-cover border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all shrink-0"
+                                                />
+                                                <div className="min-w-0">
+                                                    <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                                                        {bUser.name?.firstName
+                                                            ? `${bUser.name.firstName} ${bUser.name.lastName || ""}`.trim()
+                                                            : `@${bUser.username}`}
+                                                    </h4>
+                                                    <p className="text-xs text-muted-foreground truncate">
+                                                        @{bUser.username}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={unblockingUserId === bUser._id}
+                                                onClick={() => handleUnblock(bUser._id)}
+                                                className="h-8 text-xs font-semibold gap-1.5 rounded-xl hover:text-emerald-500 hover:border-emerald-500/40 shrink-0"
+                                            >
+                                                {unblockingUserId === bUser._id ? (
+                                                    <Loader2 className="size-3 animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <UserCheck className="size-3.5" />
+                                                        <span>Unblock</span>
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        {loadingBlocked ? (
-                            <div className="py-8 flex justify-center text-muted-foreground">
-                                <Loader2 className="size-6 animate-spin" />
-                            </div>
-                        ) : blockedUsers.length === 0 ? (
-                            <div className="py-12 text-center text-muted-foreground text-xs italic">
-                                You haven&apos;t blocked any contacts.
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {blockedUsers.map((bUser) => (
-                                    <div
-                                        key={bUser._id}
-                                        className="flex items-center justify-between p-3 rounded-2xl bg-secondary/50 border border-border/60"
-                                    >
-                                        <div
-                                            className="flex items-center gap-3 cursor-pointer group min-w-0"
-                                            onClick={() => { setViewingBlockedUser(bUser); setCopiedBlockedHandle(false); }}
-                                            title="View profile"
-                                        >
-                                            <img
-                                                src={bUser.avatarUrl || DEFAULT_AVATAR}
-                                                alt={bUser.username}
-                                                className="size-10 rounded-full object-cover border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all shrink-0"
-                                            />
-                                            <div className="min-w-0">
-                                                <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                                                    {bUser.name?.firstName
-                                                        ? `${bUser.name.firstName} ${bUser.name.lastName || ""}`.trim()
-                                                        : `@${bUser.username}`}
-                                                </h4>
-                                                <p className="text-xs text-muted-foreground truncate">
-                                                    @{bUser.username}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={unblockingUserId === bUser._id}
-                                            onClick={() => handleUnblock(bUser._id)}
-                                            className="h-8 text-xs font-semibold gap-1.5 rounded-xl hover:text-emerald-500 hover:border-emerald-500/40 shrink-0"
-                                        >
-                                            {unblockingUserId === bUser._id ? (
-                                                <Loader2 className="size-3 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <UserCheck className="size-3.5" />
-                                                    <span>Unblock</span>
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Blocked User Profile Modal */}
-                    <AnimatePresence>
-                        {viewingBlockedUser && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                onClick={() => setViewingBlockedUser(null)}
-                                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
-                            >
+                        {/* Blocked User Profile Modal */}
+                        <AnimatePresence>
+                            {viewingBlockedUser && (
                                 <motion.div
-                                    initial={{ scale: 0.95, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    exit={{ scale: 0.95, opacity: 0 }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="w-full max-w-sm rounded-3xl bg-card border border-border/80 p-6 shadow-2xl space-y-5 relative"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setViewingBlockedUser(null)}
+                                    className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
                                 >
-                                    <button
-                                        type="button"
-                                        onClick={() => setViewingBlockedUser(null)}
-                                        className="absolute top-4 right-4 size-8 rounded-full bg-secondary text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                                    <motion.div
+                                        initial={{ scale: 0.95, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        exit={{ scale: 0.95, opacity: 0 }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full max-w-sm rounded-3xl bg-card border border-border/80 p-6 shadow-2xl space-y-5 relative"
                                     >
-                                        <X className="size-4" />
-                                    </button>
-
-                                    <div className="flex flex-col items-center text-center space-y-3">
-                                        <div
-                                            onClick={() => setShowBlockedUserDp(true)}
-                                            className="relative group size-28 rounded-full overflow-hidden border-2 border-border shadow-md cursor-pointer ring-4 ring-primary/10"
-                                            title="View full picture"
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewingBlockedUser(null)}
+                                            className="absolute top-4 right-4 size-8 rounded-full bg-secondary text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
                                         >
-                                            <img
-                                                src={viewingBlockedUser.avatarUrl || DEFAULT_AVATAR}
-                                                alt={viewingBlockedUser.username}
-                                                className="size-full object-cover"
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                                <Maximize2 className="size-5" />
+                                            <X className="size-4" />
+                                        </button>
+
+                                        <div className="flex flex-col items-center text-center space-y-3">
+                                            <div
+                                                onClick={() => setShowBlockedUserDp(true)}
+                                                className="relative group size-28 rounded-full overflow-hidden border-2 border-border shadow-md cursor-pointer ring-4 ring-primary/10"
+                                                title="View full picture"
+                                            >
+                                                <img
+                                                    src={viewingBlockedUser.avatarUrl || DEFAULT_AVATAR}
+                                                    alt={viewingBlockedUser.username}
+                                                    className="size-full object-cover"
+                                                />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                    <Maximize2 className="size-5" />
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div>
-                                            <h3 className="text-lg font-bold text-foreground">
-                                                {viewingBlockedUser.name?.firstName
-                                                    ? `${viewingBlockedUser.name.firstName} ${viewingBlockedUser.name.lastName || ""}`.trim()
-                                                    : `@${viewingBlockedUser.username}`}
-                                            </h3>
-                                            <div className="mt-1 flex items-center justify-center">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleCopyBlockedHandle(viewingBlockedUser.username)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
-                                                    title="Click to copy handle"
-                                                >
-                                                    <span>@{viewingBlockedUser.username}</span>
-                                                    {copiedBlockedHandle ? (
-                                                        <Check className="size-3 text-emerald-500 stroke-3" />
-                                                    ) : (
-                                                        <Copy className="size-3 opacity-60" />
-                                                    )}
-                                                </button>
+                                            <div>
+                                                <h3 className="text-lg font-bold text-foreground">
+                                                    {viewingBlockedUser.name?.firstName
+                                                        ? `${viewingBlockedUser.name.firstName} ${viewingBlockedUser.name.lastName || ""}`.trim()
+                                                        : `@${viewingBlockedUser.username}`}
+                                                </h3>
+                                                <div className="mt-1 flex items-center justify-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCopyBlockedHandle(viewingBlockedUser.username)}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
+                                                        title="Click to copy handle"
+                                                    >
+                                                        <span>@{viewingBlockedUser.username}</span>
+                                                        {copiedBlockedHandle ? (
+                                                            <Check className="size-3 text-emerald-500 stroke-3" />
+                                                        ) : (
+                                                            <Copy className="size-3 opacity-60" />
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
+
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-destructive/10 text-[11px] font-medium text-destructive">
+                                                Blocked
+                                            </span>
                                         </div>
 
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-destructive/10 text-[11px] font-medium text-destructive">
-                                            Blocked
-                                        </span>
-                                    </div>
+                                        {viewingBlockedUser.bio && (
+                                            <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
+                                                <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
+                                                {viewingBlockedUser.bio}
+                                            </div>
+                                        )}
 
-                                    {viewingBlockedUser.bio && (
-                                        <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
-                                            <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
-                                            {viewingBlockedUser.bio}
+                                        <div className="flex gap-2 pt-1">
+                                            <Button
+                                                variant="outline"
+                                                className="flex-1 rounded-xl text-xs font-semibold"
+                                                onClick={() => setShowBlockedUserDp(true)}
+                                            >
+                                                <Maximize2 className="size-3.5 mr-1.5" />
+                                                <span>View Photo</span>
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                className="flex-1 rounded-xl text-xs font-semibold"
+                                                disabled={unblockingUserId === viewingBlockedUser._id}
+                                                onClick={() => {
+                                                    handleUnblock(viewingBlockedUser._id);
+                                                    setViewingBlockedUser(null);
+                                                }}
+                                            >
+                                                <UserCheck className="size-3.5 mr-1.5" />
+                                                <span>Unblock</span>
+                                            </Button>
                                         </div>
-                                    )}
-
-                                    <div className="flex gap-2 pt-1">
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1 rounded-xl text-xs font-semibold"
-                                            onClick={() => setShowBlockedUserDp(true)}
-                                        >
-                                            <Maximize2 className="size-3.5 mr-1.5" />
-                                            <span>View Photo</span>
-                                        </Button>
-                                        <Button
-                                            variant="secondary"
-                                            className="flex-1 rounded-xl text-xs font-semibold"
-                                            disabled={unblockingUserId === viewingBlockedUser._id}
-                                            onClick={() => {
-                                                handleUnblock(viewingBlockedUser._id);
-                                                setViewingBlockedUser(null);
-                                            }}
-                                        >
-                                            <UserCheck className="size-3.5 mr-1.5" />
-                                            <span>Unblock</span>
-                                        </Button>
-                                    </div>
+                                    </motion.div>
                                 </motion.div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                            )}
+                        </AnimatePresence>
 
-                    {/* Blocked User Full DP Lightbox */}
-                    <AnimatePresence>
-                        {showBlockedUserDp && viewingBlockedUser && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                onClick={() => setShowBlockedUserDp(false)}
-                                className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-lg flex items-center justify-center p-4 cursor-zoom-out"
-                            >
+                        {/* Blocked User Full DP Lightbox */}
+                        <AnimatePresence>
+                            {showBlockedUserDp && viewingBlockedUser && (
                                 <motion.div
-                                    initial={{ scale: 0.9 }}
-                                    animate={{ scale: 1 }}
-                                    exit={{ scale: 0.9 }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="relative max-w-105 w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setShowBlockedUserDp(false)}
+                                    className="fixed inset-0 z-60 bg-black/85 backdrop-blur-lg flex items-center justify-center p-4 cursor-zoom-out"
                                 >
-                                    <img
-                                        src={viewingBlockedUser.avatarUrl || DEFAULT_AVATAR}
-                                        alt={viewingBlockedUser.username}
-                                        className="w-full h-auto object-cover max-h-[75vh]"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowBlockedUserDp(false)}
-                                        className="absolute top-3 right-3 size-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
+                                    <motion.div
+                                        initial={{ scale: 0.9 }}
+                                        animate={{ scale: 1 }}
+                                        exit={{ scale: 0.9 }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="relative max-w-105 w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10"
                                     >
-                                        <X className="size-4" />
-                                    </button>
+                                        <img
+                                            src={viewingBlockedUser.avatarUrl || DEFAULT_AVATAR}
+                                            alt={viewingBlockedUser.username}
+                                            className="w-full h-auto object-cover max-h-[75vh]"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowBlockedUserDp(false)}
+                                            className="absolute top-3 right-3 size-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
+                                        >
+                                            <X className="size-4" />
+                                        </button>
+                                    </motion.div>
                                 </motion.div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                            )}
+                        </AnimatePresence>
                     </>
                 )}
             </main>

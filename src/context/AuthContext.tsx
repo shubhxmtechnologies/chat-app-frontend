@@ -15,6 +15,7 @@ import {
 import {
     connectSocket,
     disconnectSocket,
+    setSocketAuthErrorHandler,
 } from "../socket/socketClient";
 
 import {
@@ -128,6 +129,16 @@ export const AuthProvider = ({
         });
 
         setTokenRefreshFailHandler(() => {
+            disconnectSocket();
+            setAuth({
+                status: "unauthenticated",
+                accessToken: null,
+                user: null,
+            });
+        });
+        
+        // H3: Handle server-sent auth errors (like token expiry or forced logout)
+        setSocketAuthErrorHandler(() => {
             disconnectSocket();
             setAuth({
                 status: "unauthenticated",

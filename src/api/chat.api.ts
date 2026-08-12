@@ -15,14 +15,8 @@ export const createOrGetChat = async (
     otherUserId: string
 ): Promise<Chat> => {
     try {
-        const response =
-            await axiosClient.post(
-                "/chats",
-                {
-                    otherUserId,
-                }
-            );
-
+        const response = await axiosClient.post("/chats", { otherUserId });
+        clearChatsCache();
         return response.data.chat;
     } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -36,33 +30,38 @@ export const createOrGetChat = async (
     }
 };
 
-export const getUserChats =
-    async (): Promise<ChatType[]> => {
-        try {
-            const response =
-                await axiosClient.get(
-                    "/chats"
-                );
+let cachedChats: ChatType[] | null = null;
+let chatsPromise: Promise<ChatType[]> | null = null;
 
-            return response.data.chats;
-        } catch (error) {
-            if (
-                axios.isAxiosError(error)
-            ) {
-                throw new Error(
-                    error.response?.data
-                        ?.message ??
-                    "Failed to load chats"
-                );
-            }
+export const clearChatsCache = () => {
+    cachedChats = null;
+    chatsPromise = null;
+};
 
-            throw error;
+export const getUserChats = async (forceRefetch = false): Promise<ChatType[]> => {
+    if (!forceRefetch && cachedChats) return cachedChats;
+    if (!forceRefetch && chatsPromise) return chatsPromise;
+
+    try {
+        chatsPromise = axiosClient.get("/chats").then((response) => {
+            cachedChats = response.data.chats;
+            return cachedChats as ChatType[];
+        });
+        const result = await chatsPromise;
+        return result;
+    } catch (error) {
+        chatsPromise = null;
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data?.message ?? "Failed to load chats");
         }
-    };
+        throw error;
+    }
+};
 
 export const deleteChatForMe = async (chatId: string): Promise<void> => {
     try {
         await axiosClient.delete(`/chats/${chatId}/me`);
+        clearChatsCache();
     } catch (error) {
         if (axios.isAxiosError(error)) {
             throw new Error(
@@ -76,6 +75,7 @@ export const deleteChatForMe = async (chatId: string): Promise<void> => {
 export const deleteChatForEveryone = async (chatId: string): Promise<void> => {
     try {
         await axiosClient.delete(`/chats/${chatId}/everyone`);
+        clearChatsCache();
     } catch (error) {
         if (axios.isAxiosError(error)) {
             throw new Error(
