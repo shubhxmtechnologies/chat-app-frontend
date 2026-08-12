@@ -718,6 +718,19 @@ const Profile = () => {
                             </form>
                         </div>
 
+                        {/* Appearance & Theme Card */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-bold text-foreground">
+                                    App Appearance
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Customize your theme preference across all chats and pages.
+                                </p>
+                            </div>
+                            <ThemeToggle showLabel />
+                        </div>
+
                         {/* Permanent Username Notice Card */}
                         <div className="rounded-3xl border border-border/60 bg-secondary/40 p-5 flex items-start gap-3.5">
                             <div className="size-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">

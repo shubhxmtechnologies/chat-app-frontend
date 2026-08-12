@@ -14,14 +14,14 @@ export const ThemeToggle = ({ className, showLabel = false }: Props) => {
     return (
         <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size={showLabel ? "sm" : "icon"}
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             className={cn(
-                "rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-secondary/80",
-                showLabel ? "h-9 px-3 gap-2 text-xs font-medium" : "size-9",
+                "rounded-xl border border-border/90 bg-card/90 hover:bg-card text-muted-foreground hover:text-foreground shadow-2xs backdrop-blur-md transition-all active:scale-95 shrink-0",
+                showLabel ? "h-9 px-3.5 gap-2 text-xs font-medium" : "size-9",
                 className
             )}
         >
@@ -31,7 +31,7 @@ export const ThemeToggle = ({ className, showLabel = false }: Props) => {
                 <Moon className="size-4 text-indigo-500 transition-transform rotate-0 hover:-rotate-12" />
             )}
             {showLabel && (
-                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+                <span className="text-xs font-semibold">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
             )}
         </Button>
     );
