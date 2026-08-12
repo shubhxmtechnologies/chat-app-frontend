@@ -763,10 +763,7 @@ const ChatList = () => {
                                     if (!otherUser) return null;
 
                                     const online = isOnline(otherUser._id);
-                                    const lastSeenTime = getLastSeen(
-                                        otherUser._id,
-                                        otherUser.lastSeenAt
-                                    );
+
                                     const isBlocked = chat.blockedByMe || chat.blockedByThem;
 
                                     const displayName =
