@@ -78,10 +78,11 @@ axiosClient.interceptors.response.use(
 
         try {
             if (!refreshPromise) {
+                const refreshToken = localStorage.getItem("refreshToken");
                 refreshPromise = axios
                     .post(
                         `${envConfig.API_URL}/auth/refresh`,
-                        {},
+                        { refreshToken },
                         {
                             withCredentials: true,
                         }
@@ -91,6 +92,9 @@ axiosClient.interceptors.response.use(
                             response.data.accessToken;
 
                         setAccessToken(token);
+                        if (response.data.refreshToken) {
+                            localStorage.setItem("refreshToken", response.data.refreshToken);
+                        }
                         onTokenRefresh?.(token);
                         return token;
                     })

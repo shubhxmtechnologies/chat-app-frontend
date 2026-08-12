@@ -31,6 +31,10 @@ export const register = async (
             response.data.accessToken
         );
 
+        if (response.data.refreshToken) {
+            localStorage.setItem("refreshToken", response.data.refreshToken);
+        }
+
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -62,6 +66,10 @@ export const login = async (
             response.data.accessToken
         );
 
+        if (response.data.refreshToken) {
+            localStorage.setItem("refreshToken", response.data.refreshToken);
+        }
+
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -77,14 +85,20 @@ export const login = async (
 
 export const refresh = async () => {
     try {
+        const refreshToken = localStorage.getItem("refreshToken");
         const response =
             await axiosClient.post(
-                "/auth/refresh"
+                "/auth/refresh",
+                { refreshToken }
             );
 
         setAccessToken(
             response.data.accessToken
         );
+
+        if (response.data.refreshToken) {
+            localStorage.setItem("refreshToken", response.data.refreshToken);
+        }
 
         return response.data;
     } catch (error) {
@@ -107,6 +121,7 @@ export const logout = async () => {
         );
 
         setAccessToken(null);
+        localStorage.removeItem("refreshToken");
     } catch (error) {
         if (axios.isAxiosError(error)) {
             throw new Error(
