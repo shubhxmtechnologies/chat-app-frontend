@@ -293,9 +293,7 @@ const previousScrollHeightRef = useRef<number>(0);
             const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
             isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
 
-            if (isNearBottomRef.current) {
-                setShowNewMessagePill(false);
-            }
+            setShowNewMessagePill(!isNearBottomRef.current);
         } catch (err) {
             console.error("Scroll position computation error:", err);
         }
@@ -783,19 +781,19 @@ const previousScrollHeightRef = useRef<number>(0);
 
                 </div>
 
-                {/* Floating "New Message" Scroll Pill */}
+                {/* Floating Scroll to Bottom Button */}
                 <AnimatePresence>
                     {showNewMessagePill && (
                         <motion.button
-                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                            initial={{ opacity: 0, scale: 0, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0, y: 10 }}
                             type="button"
                             onClick={() => scrollToBottom(false)}
-                            className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-md hover:opacity-90 active:scale-95 transition-all z-10"
+                            className="absolute bottom-20 right-4 flex items-center justify-center size-10 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground shadow-lg hover:bg-primary active:scale-95 transition-all z-10"
+                            aria-label="Scroll to bottom"
                         >
-                            <ArrowDown className="size-3.5" />
-                            <span>New messages</span>
+                            <ArrowDown className="size-5" />
                         </motion.button>
                     )}
                 </AnimatePresence>

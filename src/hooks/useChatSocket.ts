@@ -4,7 +4,7 @@ import { socket } from "../socket/socketClient";
 
 import type { Message } from "../types/message.types";
 import { sendMediaMessage } from "../api/message.api";
-import { clearChatsCache } from "../api/chat.api";
+import { updateCachedChat } from "../api/chat.api";
 interface Props {
     chatId: string;
 
@@ -37,7 +37,19 @@ export const useChatSocket = ({
         const handleReceive = (
             message: Message
         ) => {
-            clearChatsCache();
+            updateCachedChat(message.chat, (chat) => ({
+                ...chat,
+                lastMessage: {
+                    _id: message._id,
+                    text: message.text,
+                    messageType: message.messageType,
+                    createdAt: message.createdAt,
+                    sender: message.sender,
+                    isDeletedForEveryone: message.isDeletedForEveryone,
+                } as any,
+                unreadCount: message.sender !== currentUserId ? (chat.unreadCount || 0) + 1 : chat.unreadCount,
+                updatedAt: message.createdAt,
+            }));
             if (message.chat !== chatId) {
                 if (message.sender !== currentUserId) {
                     try {
@@ -117,7 +129,7 @@ export const useChatSocket = ({
             seenAt: string;
         }) => {
             if (eventChatId !== chatId) return;
-            clearChatsCache();
+            updateCachedChat(chatId, { unreadCount: 0 });
 
             setMessages((previous) =>
                 previous.map((m) =>
@@ -131,7 +143,12 @@ export const useChatSocket = ({
 
 
         const handleMessageEdited = (editedMessage: Message) => {
-            clearChatsCache();
+            updateCachedChat(editedMessage.chat, (chat) => {
+                if (chat.lastMessage && chat.lastMessage._id === editedMessage._id) {
+                    return { ...chat, lastMessage: { ...chat.lastMessage, text: editedMessage.text } };
+                }
+                return chat;
+            });
             setMessages((previous) =>
                 previous.map((m) =>
                     m._id === editedMessage._id ? editedMessage : m
@@ -141,7 +158,12 @@ export const useChatSocket = ({
 
         const handleMessageDeletedForEveryone = ({ messageId }: { messageId: string }) => {
             try {
-                clearChatsCache();
+                updateCachedChat(chatId, (chat) => {
+                    if (chat.lastMessage && chat.lastMessage._id === messageId) {
+                        return { ...chat, lastMessage: { ...chat.lastMessage, isDeletedForEveryone: true, text: null, messageType: "text" } };
+                    }
+                    return chat;
+                });
                 setMessages((previous) =>
                     previous.map((m) =>
                         m._id === messageId
@@ -264,6 +286,12 @@ export const useChatSocket = ({
             ];
         });
 
+        updateCachedChat(chatId, (chat) => ({
+            ...chat,
+            lastMessage: optimistic as any,
+            updatedAt: optimistic.createdAt,
+        }));
+
         const timeout = window.setTimeout(() => {
             setMessages((previous) =>
                 previous.map((message) =>
@@ -363,6 +391,12 @@ export const useChatSocket = ({
             if (prev.some((m) => m.clientMessageId === clientMessageId)) return prev;
             return [...prev, optimistic];
         });
+
+        updateCachedChat(chatId, (chat) => ({
+            ...chat,
+            lastMessage: optimistic as any,
+            updatedAt: optimistic.createdAt,
+        }));
 
         try {
             const response = await sendMediaMessage(chatId, messageType, file, clientMessageId, replyTo?._id);

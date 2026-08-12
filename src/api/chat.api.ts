@@ -38,6 +38,26 @@ export const clearChatsCache = () => {
     chatsPromise = null;
 };
 
+export const updateCachedChat = (chatId: string, updates: Partial<ChatType> | ((prev: ChatType) => ChatType)) => {
+    if (cachedChats) {
+        let chatFound = false;
+        cachedChats = cachedChats.map(chat => {
+            if (chat._id === chatId) {
+                chatFound = true;
+                return typeof updates === 'function' ? updates(chat) : { ...chat, ...updates };
+            }
+            return chat;
+        });
+        
+        if (chatFound) {
+            cachedChats.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        } else {
+            // If the chat isn't in the cache, clear it so it refetches next time
+            clearChatsCache();
+        }
+    }
+};
+
 export const getUserChats = async (forceRefetch = false): Promise<ChatType[]> => {
     if (!forceRefetch && cachedChats) return cachedChats;
     if (!forceRefetch && chatsPromise) return chatsPromise;
