@@ -12,7 +12,7 @@ import {
     Check,
     X,
     Maximize2,
-    Info,
+    Minimize2,
     Bell,
     BellOff,
     MessageCircle,
@@ -55,6 +55,9 @@ const ChatView = () => {
     const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
     const [showNewMessagePill, setShowNewMessagePill] = useState(false);
     const [isBlocking, setIsBlocking] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(
+        typeof document !== "undefined" ? Boolean(document.fullscreenElement) : false
+    );
 
     // Profile Details & Full DP Lightbox Modals
     const [showProfileModal, setShowProfileModal] = useState(false);
@@ -189,6 +192,39 @@ const ChatView = () => {
         }
     };
 
+    // Fullscreen change listener
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(Boolean(document.fullscreenElement));
+        };
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
+        document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFullscreenChange);
+            document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+        };
+    }, []);
+
+    const toggleFullscreen = async () => {
+        try {
+            if (!document.fullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                } else if ((document.documentElement as any).webkitRequestFullscreen) {
+                    await (document.documentElement as any).webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if ((document as any).webkitExitFullscreen) {
+                    await (document as any).webkitExitFullscreen();
+                }
+            }
+        } catch (err) {
+            console.warn("Fullscreen toggle error:", err);
+        }
+    };
+
     // Realtime typing signals
     useEffect(() => {
         if (!chatId) return;
@@ -203,7 +239,7 @@ const ChatView = () => {
             if (eventChatId === chatId && typingUserId !== user?.id) {
                 setIsTyping(true);
                 if (isNearBottomRef.current) {
-                    setTimeout(() => scrollToBottom(), 100);
+                    setTimeout(() => scrollToBottom(true), 50);
                 }
             }
         };
@@ -231,10 +267,17 @@ const ChatView = () => {
     }, [chatId, user?.id]);
 
     // Scroll management
-    const scrollToBottom = () => {
+    const scrollToBottom = (instant = false) => {
         try {
             if (containerRef.current) {
-                containerRef.current.scrollTop = containerRef.current.scrollHeight;
+                if (instant) {
+                    containerRef.current.scrollTop = containerRef.current.scrollHeight;
+                } else {
+                    containerRef.current.scrollTo({
+                        top: containerRef.current.scrollHeight,
+                        behavior: "smooth",
+                    });
+                }
                 isNearBottomRef.current = true;
                 setShowNewMessagePill(false);
             }
@@ -242,6 +285,44 @@ const ChatView = () => {
             console.error("Failed to scroll to bottom:", err);
         }
     };
+
+    // Auto-scroll when keyboard opens, closes, or viewport shrinks
+    useEffect(() => {
+        const handleViewportResize = () => {
+            if (isNearBottomRef.current) {
+                scrollToBottom(true);
+            }
+        };
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", handleViewportResize);
+            window.visualViewport.addEventListener("scroll", handleViewportResize);
+        }
+        window.addEventListener("resize", handleViewportResize);
+
+        return () => {
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener("resize", handleViewportResize);
+                window.visualViewport.removeEventListener("scroll", handleViewportResize);
+            }
+            window.removeEventListener("resize", handleViewportResize);
+        };
+    }, []);
+
+    // When user focuses input on mobile, ensure bottom message is visible
+    const handleInputFocus = () => {
+        isNearBottomRef.current = true;
+        setTimeout(() => scrollToBottom(true), 50);
+        setTimeout(() => scrollToBottom(true), 150);
+        setTimeout(() => scrollToBottom(true), 300);
+    };
+
+    // Auto-scroll if typing indicator appears while at bottom
+    useEffect(() => {
+        if (isTyping && isNearBottomRef.current) {
+            scrollToBottom(true);
+        }
+    }, [isTyping]);
 
     const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
         try {
@@ -334,12 +415,12 @@ const ChatView = () => {
                 : "User";
 
     return (
-        <div className="h-screen w-full flex flex-col bg-background bg-ambient-glow text-foreground overflow-hidden">
+        <div className="fixed inset-0 h-dvh max-h-dvh w-full flex flex-col bg-background bg-ambient-glow text-foreground overflow-hidden">
             {/* =========================================================================
-                HEADER BAR
+                HEADER BAR (Fixed sticky top)
                ========================================================================= */}
-            <header className="w-full border-b border-border/80 bg-card/70 backdrop-blur-md px-4 h-16 shrink-0 flex items-center justify-between z-20">
-                <div className="flex items-center gap-3 min-w-0">
+            <header className="w-full border-b border-border/80 bg-card/85 backdrop-blur-md px-3 sm:px-4 h-16 shrink-0 flex items-center justify-between z-30 sticky top-0 shadow-2xs">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                     {/* Back Button */}
                     <Button
                         variant="ghost"
@@ -412,16 +493,21 @@ const ChatView = () => {
 
                 {/* Header Actions */}
                 {otherUser && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Info Action */}
+                    <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                        {/* Fullscreen Toggle Action (Hide browser bars / App mode) */}
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setShowProfileModal(true)}
+                            onClick={toggleFullscreen}
                             className="size-8 text-muted-foreground hover:text-foreground"
-                            aria-label="View user profile"
+                            aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
+                            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
                         >
-                            <Info className="size-4" />
+                            {isFullscreen ? (
+                                <Minimize2 className="size-4" />
+                            ) : (
+                                <Maximize2 className="size-4" />
+                            )}
                         </Button>
 
                         {/* Theme Toggle Action */}
@@ -673,7 +759,8 @@ const ChatView = () => {
                 <div
                     ref={containerRef}
                     onScroll={handleScroll}
-                    className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+                    className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-4 space-y-3 overscroll-contain"
+                    style={{ WebkitOverflowScrolling: "touch" }}
                 >
                     {/* Older Messages Loading Indicator */}
                     {loadingOlder && (
@@ -750,7 +837,7 @@ const ChatView = () => {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 10, scale: 0.9 }}
                             type="button"
-                            onClick={scrollToBottom}
+                            onClick={() => scrollToBottom(false)}
                             className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-md hover:opacity-90 active:scale-95 transition-all z-10"
                         >
                             <ArrowDown className="size-3.5" />
@@ -782,7 +869,7 @@ const ChatView = () => {
                 </AnimatePresence>
 
                 {/* Bottom Message Input Bar */}
-                <footer className="p-3 lg:p-4 bg-transparent shrink-0">
+                <footer className="p-2.5 sm:p-3 lg:p-4 bg-card/60 backdrop-blur-md border-t border-border/40 shrink-0 z-20 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
                     <MessageInput
                         replyingTo={
                             replyingToMessage
@@ -802,9 +889,13 @@ const ChatView = () => {
                             sendMedia(file, previewUrl, clientMessageId, messageType, replyingToMessage);
                             setReplyingToMessage(null);
                         }}
+                        onFocus={handleInputFocus}
                         onTyping={() => {
                             if (!isBlocked) {
                                 handleTyping();
+                            }
+                            if (isNearBottomRef.current) {
+                                scrollToBottom(true);
                             }
                         }}
                         onStopTyping={stopTyping}

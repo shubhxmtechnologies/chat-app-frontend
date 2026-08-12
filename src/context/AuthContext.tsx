@@ -126,6 +126,7 @@ export const AuthProvider = ({
                 ...prev,
                 accessToken: newToken,
             }));
+            connectSocket(newToken);
         });
 
         setTokenRefreshFailHandler(() => {
@@ -137,16 +138,72 @@ export const AuthProvider = ({
             });
         });
         
-        // H3: Handle server-sent auth errors (like token expiry or forced logout)
-        setSocketAuthErrorHandler(() => {
-            disconnectSocket();
-            setAuth({
-                status: "unauthenticated",
-                accessToken: null,
-                user: null,
-            });
+        // Handle server-sent auth errors with silent refresh attempt instead of kicking to login
+        setSocketAuthErrorHandler(async () => {
+            try {
+                const data = await refreshApi();
+                setAuth((prev) => ({
+                    ...prev,
+                    status: "authenticated",
+                    accessToken: data.accessToken,
+                    user: data.user,
+                }));
+                connectSocket(data.accessToken);
+            } catch {
+                disconnectSocket();
+                setAuth({
+                    status: "unauthenticated",
+                    accessToken: null,
+                    user: null,
+                });
+            }
         });
     }, []);
+
+    // Proactive background silent refresh every 9 minutes while authenticated
+    useEffect(() => {
+        if (auth.status !== "authenticated") return;
+
+        const refreshInterval = setInterval(async () => {
+            try {
+                const data = await refreshApi();
+                setAuth((prev) => ({
+                    ...prev,
+                    accessToken: data.accessToken,
+                    user: data.user,
+                }));
+                connectSocket(data.accessToken);
+            } catch (err) {
+                console.warn("Proactive token refresh error:", err);
+            }
+        }, 9 * 60 * 1000); // 9 minutes (before 15m expiry)
+
+        const handleVisibilityOrFocus = async () => {
+            if (document.visibilityState === "visible") {
+                try {
+                    const data = await refreshApi();
+                    setAuth((prev) => ({
+                        ...prev,
+                        accessToken: data.accessToken,
+                        user: data.user,
+                    }));
+                    connectSocket(data.accessToken);
+                } catch {
+                    // Ignore background tab refresh errors
+                }
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+        window.addEventListener("focus", handleVisibilityOrFocus);
+
+        return () => {
+            clearInterval(refreshInterval);
+            document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+            window.removeEventListener("focus", handleVisibilityOrFocus);
+        };
+    }, [auth.status]);
+
     /*
      * Silent refresh on first load.
      */

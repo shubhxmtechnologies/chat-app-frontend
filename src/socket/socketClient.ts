@@ -43,20 +43,20 @@ socket.on("auth_error", () => {
 });
 
 /*
- * Connect with the latest access token.
+ * Connect with the latest access token or update token if already connected.
  */
 export const connectSocket = (
     token: string
 ): void => {
-    if (socket.connected) {
-        socket.disconnect();
-    }
-
     socket.auth = {
         token,
     };
 
-    socket.connect();
+    if (socket.connected) {
+        socket.emit("update_auth_token", token);
+    } else {
+        socket.connect();
+    }
 };
 
 /*

@@ -27,6 +27,7 @@ interface Props {
     ) => void;
     onTyping: () => void;
     onStopTyping: () => void;
+    onFocus?: () => void;
     blockedByMe?: boolean;
     blockedByThem?: boolean;
     onUnblock?: () => void;
@@ -40,6 +41,7 @@ const MessageInput = ({
     onSendMedia,
     onTyping,
     onStopTyping,
+    onFocus,
     blockedByMe,
     blockedByThem,
     onUnblock,
@@ -120,6 +122,7 @@ const MessageInput = ({
                 onSendMedia(file, preview, crypto.randomUUID());
                 cancelFile();
                 onStopTyping();
+                setTimeout(() => inputRef.current?.focus(), 0);
                 return;
             } catch (error) {
                 console.error("Failed to send media:", error);
@@ -132,6 +135,7 @@ const MessageInput = ({
         onSend(value, crypto.randomUUID());
         setText("");
         onStopTyping();
+        setTimeout(() => inputRef.current?.focus(), 0);
     };
 
     if (blockedByMe || blockedByThem) {
@@ -173,7 +177,7 @@ const MessageInput = ({
                     Drop your image here
                 </div>
             )}
-            
+
             {/* Reply Preview Box */}
             {replyingTo && (
                 <div className="flex items-center justify-between p-2 rounded-xl bg-primary/10 border-l-4 border-primary">
@@ -258,14 +262,15 @@ const MessageInput = ({
                         <input
                             ref={inputRef}
                             type="text"
-                            placeholder="Type an encrypted message..."
+                            placeholder="Type an message..."
                             value={text}
+                            onFocus={onFocus}
                             onChange={(e) => {
                                 setText(e.target.value);
                                 onTyping();
                             }}
                             disabled={Boolean(file) || disabled}
-                            className="flex-1 bg-transparent px-2 text-[14px] text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50"
+                            className="flex-1 bg-transparent px-2.5 text-[14px] text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50"
                         />
 
                         {/* Vibrant Gradient Send Button */}
@@ -273,15 +278,19 @@ const MessageInput = ({
                             type="submit"
                             size="icon"
                             disabled={!text.trim() && !file}
+                            onMouseDown={(e) => {
+                                // Keep focus in input to prevent keyboard from closing
+                                e.preventDefault();
+                            }}
                             aria-label="Send message"
                             className={cn(
-                                "size-9 rounded-xl shrink-0 transition-all duration-200 shadow-sm",
+                                "size-9 rounded-xl shrink-0 transition-all duration-200 shadow-sm flex items-center justify-center mr-0.5",
                                 text.trim() || file
                                     ? "bg-gradient-chat-sender text-white hover:opacity-95 hover:scale-105 active:scale-95 cursor-pointer"
                                     : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
                             )}
                         >
-                            <Send className="size-4" />
+                            <Send className="size-4 -translate-x-px translate-y-[0.5px]" />
                         </Button>
                     </>
                 )}
