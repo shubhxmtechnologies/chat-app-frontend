@@ -21,53 +21,36 @@ const ThemeContext =
 
 const STORAGE_KEY = "theme";
 
+const getInitialTheme = (): Theme => {
+    try {
+        const storedTheme = localStorage.getItem(STORAGE_KEY) as Theme | null;
+        if (storedTheme === "light" || storedTheme === "dark") {
+            document.documentElement.classList.toggle("dark", storedTheme === "dark");
+            return storedTheme;
+        }
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const fallbackTheme = prefersDark ? "dark" : "light";
+        document.documentElement.classList.toggle("dark", fallbackTheme === "dark");
+        return fallbackTheme;
+    } catch {
+        return "light";
+    }
+};
+
 export const ThemeProvider = ({
     children,
 }: {
     children: ReactNode;
 }) => {
-    const [theme, setTheme] =
-        useState<Theme>("light");
+    const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
     /*
-     * Load theme on first render.
+     * Listen for OS theme changes if user hasn't explicitly set a preference.
      */
     useEffect(() => {
-        try {
-            const storedTheme =
-                localStorage.getItem(
-                    STORAGE_KEY
-                ) as Theme | null;
-
-            if (
-                storedTheme === "light" ||
-                storedTheme === "dark"
-            ) {
-                setTheme(storedTheme);
-            } else {
-                const prefersDark =
-                    window.matchMedia(
-                        "(prefers-color-scheme: dark)"
-                    ).matches;
-
-                setTheme(
-                    prefersDark
-                        ? "dark"
-                        : "light"
-                );
-            }
-        } catch (error) {
-            console.error(
-                "Failed to load theme:",
-                error
-            );
-        }
-
-        // Listen for OS theme changes
         const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
         const handleChange = (e: MediaQueryListEvent) => {
             const stored = localStorage.getItem(STORAGE_KEY);
-            // Only auto-switch if user hasn't manually set a preference
             if (!stored) {
                 setTheme(e.matches ? "dark" : "light");
             }

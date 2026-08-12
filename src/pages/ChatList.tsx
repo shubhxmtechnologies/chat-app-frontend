@@ -31,6 +31,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import type { Chat } from "@/types/chat.types";
 import type { Message } from "@/types/message.types";
@@ -419,6 +420,9 @@ const ChatList = () => {
                         >
                             <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
                         </Button>
+
+                        {/* Theme Toggle Button */}
+                        <ThemeToggle />
 
                         {/* Profile Link */}
                         <Link to="/profile">
