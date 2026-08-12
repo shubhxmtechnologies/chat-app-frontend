@@ -18,6 +18,8 @@ import {
     ArrowRight,
     Bell,
     BellOff,
+    Maximize2,
+    Minimize2,
 } from "lucide-react";
 
 import { playReceiveSound } from "@/utils/sound.util";
@@ -122,6 +124,42 @@ const ChatList = () => {
             console.error("Failed to toggle global mute:", err);
         } finally {
             setIsMutingGlobal(false);
+        }
+    };
+
+    const [isFullscreen, setIsFullscreen] = useState(
+        typeof document !== "undefined" ? Boolean(document.fullscreenElement) : false
+    );
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(Boolean(document.fullscreenElement));
+        };
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
+        document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFullscreenChange);
+            document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+        };
+    }, []);
+
+    const toggleFullscreen = async () => {
+        try {
+            if (!document.fullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                } else if ((document.documentElement as any).webkitRequestFullscreen) {
+                    await (document.documentElement as any).webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if ((document as any).webkitExitFullscreen) {
+                    await (document as any).webkitExitFullscreen();
+                }
+            }
+        } catch (err) {
+            console.warn("Fullscreen toggle error:", err);
         }
     };
 
@@ -814,6 +852,26 @@ const ChatList = () => {
                     )}
                 </div>
             </main>
+
+            {/* Floating Fullscreen Trigger for Mobile / Web */}
+            <button
+                type="button"
+                onClick={toggleFullscreen}
+                aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen Mode"}
+                className="fixed bottom-5 right-5 z-30 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-card/90 border border-border shadow-lg backdrop-blur-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card active:scale-95 transition-all cursor-pointer hover:shadow-indigo-500/10"
+            >
+                {isFullscreen ? (
+                    <>
+                        <Minimize2 className="size-3.5 text-primary" />
+                        <span>Exit Fullscreen</span>
+                    </>
+                ) : (
+                    <>
+                        <Maximize2 className="size-3.5 text-primary" />
+                        <span>Full Screen</span>
+                    </>
+                )}
+            </button>
         </div>
     );
 };

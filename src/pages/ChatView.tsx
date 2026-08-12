@@ -68,7 +68,7 @@ const ChatView = () => {
     const { handleTyping, stopTyping } = useTypingIndicator(chatId ?? "", otherUser?._id);
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const previousScrollHeightRef = useRef<number>(0);
+const previousScrollHeightRef = useRef<number>(0);
     const isNearBottomRef = useRef<boolean>(true);
     const isInitialLoadRef = useRef<boolean>(true);
     const lastMessageIdRef = useRef<string | null>(null);
