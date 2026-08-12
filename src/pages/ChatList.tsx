@@ -376,7 +376,7 @@ const ChatList = () => {
                         <div className="size-10 rounded-2xl bg-gradient-chat-sender flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
                             <MessageCircle className="size-5" />
                         </div>
-                        <div>
+                        <div className="hidden md:block">
                             <h1 className="text-lg font-bold leading-none tracking-tight text-foreground">
                                 Pinsta Chat
                             </h1>
@@ -410,7 +410,7 @@ const ChatList = () => {
                         </Button>
 
                         {/* Refresh Button */}
-                        <Button
+                        {/* <Button
                             variant="ghost"
                             size="icon"
                             disabled={loading || refreshing || refreshCooldown}
@@ -419,7 +419,7 @@ const ChatList = () => {
                             className="size-9 text-muted-foreground hover:text-foreground"
                         >
                             <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-                        </Button>
+                        </Button> */}
 
                         {/* Theme Toggle Button */}
                         <ThemeToggle />
@@ -788,7 +788,7 @@ const ChatList = () => {
                                                                     <Trash2 className="size-3.5 text-muted-foreground" />
                                                                     <span>Delete for me</span>
                                                                 </button>
-                                                                
+
                                                                 {/* H5: Only show Delete for Both to the creator */}
                                                                 {(chat.createdBy ? chat.createdBy === user?.id : chat.participants[0]?._id === user?.id) && (
                                                                     <button

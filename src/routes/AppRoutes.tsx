@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import ProtectedRoute from "./ProtectedRoute";
+import PublicRoute from "./PublicRoute";
 
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -16,16 +17,24 @@ const AppRoutes = () => {
     return (
         <BrowserRouter>
             <Routes>
-                {/* Public */}
+                {/* Public (Guest only) */}
 
                 <Route
                     path="/login"
-                    element={<Login />}
+                    element={
+                        <PublicRoute>
+                            <Login />
+                        </PublicRoute>
+                    }
                 />
 
                 <Route
                     path="/register"
-                    element={<Register />}
+                    element={
+                        <PublicRoute>
+                            <Register />
+                        </PublicRoute>
+                    }
                 />
 
                 {/* Protected */}
