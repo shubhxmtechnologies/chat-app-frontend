@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import MessageBubble from "@/components/MessageBubble";
 import MessageInput from "@/components/MessageInput";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import type { Chat } from "@/types/chat.types";
 import type { Message } from "@/types/message.types";
@@ -422,6 +423,9 @@ const ChatView = () => {
                         >
                             <Info className="size-4" />
                         </Button>
+
+                        {/* Theme Toggle Action */}
+                        <ThemeToggle className="size-8" />
 
                         {/* Mute Action */}
                         <Button

@@ -38,6 +38,7 @@ import {
     validateBio,
 } from "@/utils/validators";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -391,18 +392,21 @@ const Profile = () => {
                         </div>
                     </div>
 
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                            await logout();
-                            navigate("/login");
-                        }}
-                        className="text-xs text-muted-foreground hover:text-destructive gap-1.5"
-                    >
-                        <LogOut className="size-3.5" />
-                        <span className="hidden sm:inline">Sign Out</span>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <ThemeToggle />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                                await logout();
+                                navigate("/login");
+                            }}
+                            className="text-xs text-muted-foreground hover:text-destructive gap-1.5"
+                        >
+                            <LogOut className="size-3.5" />
+                            <span className="hidden sm:inline">Sign Out</span>
+                        </Button>
+                    </div>
                 </div>
             </header>
 

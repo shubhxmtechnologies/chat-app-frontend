@@ -18,6 +18,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
     validateLoginForm,
     validateEmail,
@@ -124,12 +125,15 @@ const Login = () => {
                     </span>
                 </div>
 
-                <Link
-                    to="/register"
-                    className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border/80 hover:border-border bg-card/60 backdrop-blur-md"
-                >
-                    New here? <span className="text-primary font-bold ml-1">Create account</span>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <ThemeToggle />
+                    <Link
+                        to="/register"
+                        className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border/80 hover:border-border bg-card/60 backdrop-blur-md"
+                    >
+                        New here? <span className="text-primary font-bold ml-1">Create account</span>
+                    </Link>
+                </div>
             </header>
 
             {/* Immersive Responsive Canvas */}
