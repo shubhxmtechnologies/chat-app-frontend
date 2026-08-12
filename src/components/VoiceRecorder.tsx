@@ -3,6 +3,7 @@ import {  Square, Trash2, Send,  X, Circle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import VoicePlayer from "./VoicePlayer";
  
 interface Props {
     onSendVoice: (file: File, previewUrl: string, clientMessageId: string) => void;
@@ -20,6 +21,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
     const streamRef = useRef<MediaStream | null>(null);
     const chunksRef = useRef<BlobPart[]>([]);
     const timerRef = useRef<number | null>(null);
+    const isDiscardingRef = useRef<boolean>(false);
 
     const stopTracks = () => {
         try {
@@ -56,6 +58,12 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
 
             mediaRecorder.onstop = () => {
                 try {
+                    if (isDiscardingRef.current) {
+                        isDiscardingRef.current = false;
+                        stopTracks();
+                        return;
+                    }
+
                     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
                     setAudioBlob(blob);
 
@@ -89,6 +97,16 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
 
     const stopRecording = () => {
         try {
+            if (recordingTime < 1) {
+                isDiscardingRef.current = true;
+                setMicError("Voice message must be at least 1 second.");
+                setTimeout(() => setMicError(null), 3000);
+                
+                // Clear any state that might have been set
+                setAudioBlob(null);
+                setAudioUrl(null);
+            }
+
             if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
                 mediaRecorderRef.current.stop();
             }
@@ -244,8 +262,8 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                         <Trash2 className="size-4" />
                     </Button>
                     
-                    <div className="flex-1 bg-secondary/40 rounded-full px-2 flex items-center h-8">
-                        <audio src={audioUrl} controls className="h-6 w-full max-w-50" style={{ filter: "sepia(20%) saturate(70%) grayscale(1) contrast(99%) invert(12%)" }} />
+                    <div className="flex-1 bg-secondary/40 rounded-[20px] px-3 py-1 flex items-center min-h-10 border border-border/40">
+                        <VoicePlayer src={audioUrl} isMine={false} />
                     </div>
                     
                     <Button

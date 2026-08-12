@@ -364,11 +364,15 @@ const previousScrollHeightRef = useRef<number>(0);
 
     if (!chatId) return null;
 
-    const online = otherUser ? isOnline(otherUser._id) : false;
-    const lastSeenTime = otherUser
+    const isBlocked = chat?.blockedByMe || chat?.blockedByThem;
+    
+    // Override presence if blocked
+    const online = otherUser && !isBlocked ? isOnline(otherUser._id) : false;
+    const isTypingVisible = isTyping && !isBlocked;
+    const lastSeenTime = otherUser && !isBlocked
         ? getLastSeen(otherUser._id, otherUser.lastSeenAt)
         : null;
-    const isBlocked = chat?.blockedByMe || chat?.blockedByThem;
+
     const otherUserAvatar = otherUser?.avatarUrl || DEFAULT_AVATAR;
 
     const displayName =
@@ -435,7 +439,7 @@ const previousScrollHeightRef = useRef<number>(0);
                                 )}
                             </div>
                             <p className="text-[11px] leading-tight mt-0.5 truncate h-4">
-                                {isTyping ? (
+                                {isTypingVisible ? (
                                     <span className="text-primary font-medium animate-pulse">
                                         Typing...
                                     </span>
@@ -443,6 +447,8 @@ const previousScrollHeightRef = useRef<number>(0);
                                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                                         Online
                                     </span>
+                                ) : isBlocked ? (
+                                    <span className="text-muted-foreground">Last seen recently</span>
                                 ) : lastSeenTime ? (
                                     <span className="text-muted-foreground">Last seen {getRelativeTime(lastSeenTime)}</span>
                                 ) : (

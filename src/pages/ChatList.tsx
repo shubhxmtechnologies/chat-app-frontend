@@ -870,7 +870,7 @@ const ChatList = () => {
                                                         {/* Message Preview & Unread Badge */}
                                                         <div className="flex items-center justify-between gap-2 mt-1">
                                                             <div className="text-[13px] leading-tight truncate flex-1 h-4">
-                                                                {typingChats[chat._id] ? (
+                                                                {typingChats[chat._id] && !isBlocked ? (
                                                                     <span className="text-primary font-medium animate-pulse">
                                                                         Typing...
                                                                     </span>
