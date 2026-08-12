@@ -816,19 +816,7 @@ const ChatList = () => {
                                                                     {displayName}
                                                                 </h3>
 
-                                                                {online ? (
-                                                                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
-                                                                        &bull; Online
-                                                                    </span>
-                                                                ) : lastSeenTime ? (
-                                                                    <span className="text-[11px] text-muted-foreground shrink-0">
-                                                                        &bull; Last seen {getRelativeTime(lastSeenTime)}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[11px] text-muted-foreground shrink-0">
-                                                                        &bull; Offline
-                                                                    </span>
-                                                                )}
+                                                                
                                                                 {isBlocked && (
                                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium bg-destructive/10 text-destructive">
                                                                         <UserX className="size-2.5" />
