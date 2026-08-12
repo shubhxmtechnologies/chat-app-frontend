@@ -285,15 +285,6 @@ const Register = () => {
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <ThemeToggle />
-                    <Link
-                        to="/login"
-                        className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border/80 hover:border-border bg-card/60 backdrop-blur-md"
-                    >
-                        Already a member? <span className="text-primary font-bold ml-1">Sign in</span>
-                    </Link>
-                </div>
             </header>
 
             {/* Immersive Responsive Canvas */}

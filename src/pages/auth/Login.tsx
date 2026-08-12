@@ -125,15 +125,6 @@ const Login = () => {
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <ThemeToggle />
-                    <Link
-                        to="/register"
-                        className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border/80 hover:border-border bg-card/60 backdrop-blur-md"
-                    >
-                        New here? <span className="text-primary font-bold ml-1">Create account</span>
-                    </Link>
-                </div>
             </header>
 
             {/* Immersive Responsive Canvas */}
