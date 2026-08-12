@@ -124,6 +124,9 @@ const Login = () => {
                         Pinsta Chat
                     </span>
                 </div>
+                <div className="flex items-center ">
+                    <ThemeToggle />
+                </div>
 
             </header>
 

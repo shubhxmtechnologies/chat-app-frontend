@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ChangeEvent, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {  useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     User,
@@ -60,7 +60,7 @@ const Register = () => {
     });
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
-    
+
     const [isCheckingUsername, setIsCheckingUsername] = useState(false);
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
@@ -283,6 +283,9 @@ const Register = () => {
                     <span className="text-lg font-bold tracking-tight text-foreground">
                         Pinsta Chat
                     </span>
+                </div>
+                <div className="flex items-center ">
+                    <ThemeToggle />
                 </div>
 
             </header>
@@ -618,8 +621,8 @@ const Register = () => {
                                                             strength < 50
                                                                 ? "bg-destructive"
                                                                 : strength < 75
-                                                                ? "bg-amber-500"
-                                                                : "bg-emerald-500"
+                                                                    ? "bg-amber-500"
+                                                                    : "bg-emerald-500"
                                                         )}
                                                         initial={{ width: 0 }}
                                                         animate={{ width: `${strength}%` }}
