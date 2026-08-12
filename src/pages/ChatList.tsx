@@ -29,7 +29,6 @@ import { getUserChats, createOrGetChat, deleteChatForMe, deleteChatForEveryone }
 import { searchUsers, toggleGlobalMute, type SearchUser } from "@/api/user.api";
 import { useAuth } from "@/context/AuthContext";
 import { usePresence } from "@/context/PresenceContext";
-import { getRelativeTime } from "@/utils/time.util";
 import { socket } from "@/socket/socketClient";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,7 @@ const DEFAULT_AVATAR = "https://cutiedp.com/wp-content/uploads/2025/08/no-dp-ima
 const ChatList = () => {
     const navigate = useNavigate();
     const { user, logout, updateUser } = useAuth();
-    const { isOnline, getLastSeen } = usePresence();
+    const { isOnline } = usePresence();
 
     const [chats, setChats] = useState<Chat[]>([]);
     const [typingChats, setTypingChats] = useState<Record<string, boolean>>({});
@@ -135,6 +134,25 @@ const ChatList = () => {
     // Delete chat context menu
     const [menuChatId, setMenuChatId] = useState<string | null>(null);
     const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
+
+    // Long press support for mobile
+    const chatLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [wasLongPress, setWasLongPress] = useState(false);
+
+    const handleChatTouchStart = useCallback((chatId: string) => {
+        if (menuChatId === chatId) return;
+        setWasLongPress(false);
+        chatLongPressTimer.current = setTimeout(() => {
+            setMenuChatId(chatId);
+            setWasLongPress(true);
+        }, 500);
+    }, [menuChatId]);
+
+    const handleChatTouchEnd = useCallback(() => {
+        if (chatLongPressTimer.current) {
+            clearTimeout(chatLongPressTimer.current);
+        }
+    }, []);
 
     const debouncedSearch = useDebounce(searchQuery, 300);
     const searchAbortRef = useRef<AbortController | null>(null);
@@ -783,7 +801,22 @@ const ChatList = () => {
                                             <div className="relative">
                                                 <button
                                                     type="button"
-                                                    onClick={() => navigate(`/chats/${chat._id}`)}
+                                                    onTouchStart={() => handleChatTouchStart(chat._id)}
+                                                    onTouchEnd={handleChatTouchEnd}
+                                                    onTouchMove={handleChatTouchEnd}
+                                                    onContextMenu={(e) => {
+                                                        if (window.matchMedia("(max-width: 768px)").matches) {
+                                                            e.preventDefault();
+                                                        }
+                                                    }}
+                                                    onClick={(e) => {
+                                                        if (wasLongPress) {
+                                                            e.preventDefault();
+                                                            setWasLongPress(false);
+                                                            return;
+                                                        }
+                                                        navigate(`/chats/${chat._id}`);
+                                                    }}
                                                     className={cn(
                                                         "w-full flex items-center gap-3.5 p-3 rounded-xl text-left",
                                                         "border border-border/60 bg-card hover:bg-secondary/70 active:bg-secondary transition-all duration-150 shadow-2xs group",
@@ -813,7 +846,7 @@ const ChatList = () => {
                                                                     {displayName}
                                                                 </h3>
 
-                                                                
+
                                                                 {isBlocked && (
                                                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium bg-destructive/10 text-destructive">
                                                                         <UserX className="size-2.5" />
@@ -824,8 +857,12 @@ const ChatList = () => {
 
                                                             {/* Timestamp */}
                                                             {chat.lastMessage && (
-                                                                <span className="text-[11px] text-muted-foreground shrink-0 font-medium">
-                                                                    {getRelativeTime(chat.lastMessage.createdAt)}
+                                                                <span className="text-[11px] text-emerald-500 dark:text-emerald-400 shrink-0 font-medium">
+                                                                    {new Date(chat.lastMessage.createdAt).toLocaleTimeString('en-US', {
+                                                                        hour: 'numeric',
+                                                                        minute: '2-digit',
+                                                                        hour12: true
+                                                                    }).toUpperCase()}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -843,7 +880,7 @@ const ChatList = () => {
                                                             </div>
 
                                                             {chat.unreadCount > 0 && (
-                                                                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold shrink-0 shadow-xs animate-in zoom-in-50">
+                                                                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-semibold shrink-0 shadow-xs animate-in zoom-in-50">
                                                                     {chat.unreadCount > 99
                                                                         ? "99+"
                                                                         : chat.unreadCount}
@@ -852,9 +889,12 @@ const ChatList = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* 3-dot menu trigger */}
+                                                    {/* 3-dot menu trigger (visible on desktop hover or when menu is open) */}
                                                     <div
-                                                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className={cn(
+                                                            "shrink-0 hidden md:flex transition-opacity",
+                                                            menuChatId === chat._id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                                        )}
                                                         onClick={(e) => e.stopPropagation()}
                                                     >
                                                         <button

@@ -1,5 +1,6 @@
 import axios from "axios";
 import axiosClient from "./axiosClient";
+import { clearChatsCache } from "./chat.api";
 
 export interface SearchUser {
     _id: string;
@@ -173,6 +174,7 @@ export const updateBio = async (bio: string | null): Promise<string | null> => {
 export const blockUser = async (userId: string): Promise<void> => {
     try {
         await axiosClient.post(`/users/me/block/${userId}`);
+        clearChatsCache();
     } catch (error) {
         if (axios.isAxiosError(error)) {
             throw new Error(
@@ -186,6 +188,7 @@ export const blockUser = async (userId: string): Promise<void> => {
 export const unblockUser = async (userId: string): Promise<void> => {
     try {
         await axiosClient.post(`/users/me/unblock/${userId}`);
+        clearChatsCache();
     } catch (error) {
         if (axios.isAxiosError(error)) {
             throw new Error(
