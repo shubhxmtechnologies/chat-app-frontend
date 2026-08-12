@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -8,6 +8,7 @@ import {
     Plus,
     X,
     Loader2,
+    RefreshCw,
     Image as ImageIcon,
     Mic,
     Trash2,
@@ -51,28 +52,79 @@ const ChatList = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const [refreshCooldown, setRefreshCooldown] = useState(() => {
-        const lastRefresh = localStorage.getItem("lastRefreshTime");
-        if (lastRefresh) {
-            return Date.now() - parseInt(lastRefresh, 10) < 10000;
-        }
-        return false;
-    });
+    // -- Pull-to-Refresh state --
+    const [pullRefreshing, setPullRefreshing] = useState(false);
+    const [pullDistance, setPullDistance] = useState(0);
+    const [rateLimitMsg, setRateLimitMsg] = useState("");
+    const pullStartY = useRef(0);
+    const isPulling = useRef(false);
+    const mainRef = useRef<HTMLDivElement>(null);
 
-    // Handle cooldown duration across reloads
-    useEffect(() => {
-        if (refreshCooldown) {
-            const lastRefresh = localStorage.getItem("lastRefreshTime");
-            if (lastRefresh) {
-                const timeRemaining = 10000 - (Date.now() - parseInt(lastRefresh, 10));
-                if (timeRemaining > 0) {
-                    const timer = setTimeout(() => setRefreshCooldown(false), timeRemaining);
-                    return () => clearTimeout(timer);
-                }
-            }
-            setRefreshCooldown(false);
+    // Rate limiter: max 3 refreshes in 10 seconds
+    const pullTimestamps = useRef<number[]>([]);
+    const PULL_RATE_LIMIT = 3;
+    const PULL_RATE_WINDOW = 10_000; // 10 seconds
+
+    const canPullRefresh = useCallback(() => {
+        const now = Date.now();
+        // Clean up timestamps older than the window
+        pullTimestamps.current = pullTimestamps.current.filter(t => now - t < PULL_RATE_WINDOW);
+        return pullTimestamps.current.length < PULL_RATE_LIMIT;
+    }, []);
+
+    const PULL_THRESHOLD = 70; // px needed to trigger refresh
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        // Only start pull if the scrollable container is at the top
+        const scrollEl = mainRef.current;
+        if (scrollEl && scrollEl.scrollTop <= 0 && !pullRefreshing) {
+            pullStartY.current = e.touches[0].clientY;
+            isPulling.current = true;
         }
-    }, [refreshCooldown]);
+    }, [pullRefreshing]);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (!isPulling.current) return;
+        const diff = e.touches[0].clientY - pullStartY.current;
+        if (diff > 0) {
+            // Apply resistance so the pull feels natural
+            setPullDistance(Math.min(diff * 0.5, 120));
+        } else {
+            isPulling.current = false;
+            setPullDistance(0);
+        }
+    }, []);
+
+    const handleTouchEnd = useCallback(async () => {
+        if (!isPulling.current) return;
+        isPulling.current = false;
+
+        if (pullDistance >= PULL_THRESHOLD) {
+            if (!canPullRefresh()) {
+                // Rate limited
+                setPullDistance(0);
+                setRateLimitMsg("Please wait, you're sending too many requests!");
+                setTimeout(() => setRateLimitMsg(""), 3000);
+                return;
+            }
+
+            pullTimestamps.current.push(Date.now());
+            setPullRefreshing(true);
+            setPullDistance(PULL_THRESHOLD); // Keep indicator visible while loading
+
+            try {
+                const data = await getUserChats(true);
+                setChats(data);
+            } catch (err) {
+                console.warn("Pull refresh failed:", err);
+            } finally {
+                setPullRefreshing(false);
+                setPullDistance(0);
+            }
+        } else {
+            setPullDistance(0);
+        }
+    }, [pullDistance, canPullRefresh]);
 
     // Search and User Discovery
     const [searchQuery, setSearchQuery] = useState("");
@@ -91,10 +143,7 @@ const ChatList = () => {
     // Fetch conversations
     const fetchChats = async (isManualRefresh = false, forceRefetch = false) => {
         try {
-            if (isManualRefresh) {
-                setRefreshCooldown(true);
-                localStorage.setItem("lastRefreshTime", Date.now().toString());
-            } else if (!forceRefetch) {
+            if (!isManualRefresh && !forceRefetch) {
                 setLoading(true);
             }
             setError("");
@@ -444,18 +493,6 @@ const ChatList = () => {
                             )}
                         </Button>
 
-                        {/* Refresh Button */}
-                        {/* <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={loading || refreshing || refreshCooldown}
-                            onClick={() => void fetchChats(true)}
-                            aria-label="Refresh conversations"
-                            className="size-9 text-muted-foreground hover:text-foreground"
-                        >
-                            <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-                        </Button> */}
-
                         {/* Theme Toggle Button */}
                         <ThemeToggle />
 
@@ -489,8 +526,62 @@ const ChatList = () => {
                 </div>
             </header>
 
-            {/* Main Content Container */}
-            <main className="w-full max-w-180 px-4 py-6 flex-1 flex flex-col gap-5">
+            {/* Rate Limit Toast */}
+            <AnimatePresence>
+                {rateLimitMsg && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-amber-500/90 text-white text-xs font-medium shadow-lg backdrop-blur-sm"
+                    >
+                        {rateLimitMsg}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Main Content Container (pull-to-refresh enabled) */}
+            <main
+                ref={mainRef}
+                className="w-full max-w-180 px-4 py-6 flex-1 flex flex-col gap-5 overflow-y-auto"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
+                {/* Pull-to-Refresh Indicator */}
+                <AnimatePresence>
+                    {pullDistance > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: pullDistance }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="flex items-center justify-center w-full -mt-6 overflow-hidden"
+                        >
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                                <RefreshCw
+                                    className={cn(
+                                        "size-4 transition-transform",
+                                        pullRefreshing && "animate-spin",
+                                        !pullRefreshing && pullDistance >= PULL_THRESHOLD && "text-primary"
+                                    )}
+                                    style={{
+                                        transform: pullRefreshing
+                                            ? undefined
+                                            : `rotate(${Math.min(pullDistance / PULL_THRESHOLD, 1) * 360}deg)`,
+                                    }}
+                                />
+                                <span>
+                                    {pullRefreshing
+                                        ? "Refreshing..."
+                                        : pullDistance >= PULL_THRESHOLD
+                                            ? "Release to refresh"
+                                            : "Pull down to refresh"}
+                                </span>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
                 {/* Search Bar */}
                 <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />

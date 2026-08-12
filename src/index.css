@@ -153,6 +153,14 @@
       radial-gradient(circle at 90% 80%, rgba(217, 70, 239, 0.18) 0%, transparent 45%),
       radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.12) 0%, transparent 65%);
   }
+  /* Hide scrollbar but keep scrolling for textarea inputs */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer base {

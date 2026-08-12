@@ -149,13 +149,21 @@ export const AuthProvider = ({
                     user: data.user,
                 }));
                 connectSocket(data.accessToken);
-            } catch {
-                disconnectSocket();
-                setAuth({
-                    status: "unauthenticated",
-                    accessToken: null,
-                    user: null,
-                });
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "";
+                const is401 =
+                    message.includes("Refresh token missing") ||
+                    message.includes("Invalid or expired refresh token") ||
+                    message.includes("Invalid refresh token");
+
+                if (is401) {
+                    disconnectSocket();
+                    setAuth({
+                        status: "unauthenticated",
+                        accessToken: null,
+                        user: null,
+                    });
+                }
             }
         });
     }, []);
@@ -178,29 +186,8 @@ export const AuthProvider = ({
             }
         }, 9 * 60 * 1000); // 9 minutes (before 15m expiry)
 
-        const handleVisibilityOrFocus = async () => {
-            if (document.visibilityState === "visible") {
-                try {
-                    const data = await refreshApi();
-                    setAuth((prev) => ({
-                        ...prev,
-                        accessToken: data.accessToken,
-                        user: data.user,
-                    }));
-                    connectSocket(data.accessToken);
-                } catch {
-                    // Ignore background tab refresh errors
-                }
-            }
-        };
-
-        document.addEventListener("visibilitychange", handleVisibilityOrFocus);
-        window.addEventListener("focus", handleVisibilityOrFocus);
-
         return () => {
             clearInterval(refreshInterval);
-            document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
-            window.removeEventListener("focus", handleVisibilityOrFocus);
         };
     }, [auth.status]);
 

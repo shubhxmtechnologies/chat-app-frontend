@@ -54,7 +54,7 @@ const MessageInput = ({
     const [isDragging, setIsDragging] = useState(false);
 
     const fileRef = useRef<HTMLInputElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         if (replyingTo && inputRef.current) {
@@ -260,31 +260,39 @@ const MessageInput = ({
                     <Mic className="size-4" />
                 </Button>
 
-                {/* Main Text Input */}
+                {/* Main Text Input (textarea to block password managers) */}
                 {!showVoice && (
                     <>
-                        <input
+                        <textarea
                             ref={inputRef}
-                            type="text"
-                            name="chat_message_entry"
-                            id="chat_message_entry"
+                            name="txt_compose_area"
+                            id="txt_compose_area"
                             autoComplete="off"
                             autoCorrect="off"
                             autoCapitalize="sentences"
                             spellCheck={true}
                             data-lpignore="true"
                             data-1p-ignore="true"
+                            data-1password-ignore="true"
                             data-form-type="other"
                             enterKeyHint="send"
-                            placeholder="Type an message..."
+                            role="textbox"
+                            rows={1}
+                            placeholder="Type a message..."
                             value={text}
                             onFocus={onFocus}
                             onChange={(e) => {
-                                setText(e.target.value);
+                                setText(e.target.value.replace(/\n/g, ""));
                                 onTyping();
                             }}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    submit(e as unknown as FormEvent);
+                                }
+                            }}
                             disabled={Boolean(file) || disabled}
-                            className="flex-1 bg-transparent px-2 text-[14px] text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50"
+                            className="flex-1 bg-transparent px-2 text-[14px] leading-9 h-9 text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50 resize-none overflow-hidden whitespace-nowrap scrollbar-none"
                         />
 
                         {/* Centered Vibrant Send Button */}
