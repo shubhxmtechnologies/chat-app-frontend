@@ -15,6 +15,13 @@ import VoiceRecorder from "./VoiceRecorder";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const generateId = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+};
+
 interface Props {
     replyingTo?: { _id: string, text: string | null, messageType: string } | null;
     onCancelReply?: () => void;
@@ -32,6 +39,8 @@ interface Props {
     blockedByThem?: boolean;
     onUnblock?: () => void;
     disabled?: boolean;
+    disableVoice?: boolean;
+    disableMedia?: boolean;
 }
 
 const MessageInput = ({
@@ -46,6 +55,8 @@ const MessageInput = ({
     blockedByThem,
     onUnblock,
     disabled = false,
+    disableVoice = false,
+    disableMedia = false,
 }: Props) => {
     const [text, setText] = useState("");
     const [file, setFile] = useState<File | null>(null);
@@ -119,7 +130,7 @@ const MessageInput = ({
 
         if (file && preview && onSendMedia) {
             try {
-                onSendMedia(file, preview, crypto.randomUUID());
+                onSendMedia(file, preview, generateId());
                 cancelFile();
                 onStopTyping();
                 setTimeout(() => inputRef.current?.focus(), 0);
@@ -132,7 +143,7 @@ const MessageInput = ({
         const value = text.trim();
         if (!value) return;
 
-        onSend(value, crypto.randomUUID());
+        onSend(value, generateId());
         setText("");
         onStopTyping();
         setTimeout(() => inputRef.current?.focus(), 0);
@@ -227,38 +238,44 @@ const MessageInput = ({
 
             {/* Input Toolbar */}
             <div className="flex items-center gap-1 w-full">
-                <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    ref={fileRef}
-                    onChange={handleFileChange}
-                />
+                {!disableMedia && (
+                    <>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={fileRef}
+                            onChange={handleFileChange}
+                        />
 
-                {/* Attach Photo Button */}
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => fileRef.current?.click()}
-                    aria-label="Attach photo"
-                    className="size-9 rounded-full text-muted-foreground hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors shrink-0"
-                >
-                    <ImageIcon className="size-4" />
-                </Button>
+                        {/* Attach Photo Button */}
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => fileRef.current?.click()}
+                            aria-label="Attach photo"
+                            className="size-9 rounded-full text-muted-foreground hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors shrink-0"
+                        >
+                            <ImageIcon className="size-4" />
+                        </Button>
+                    </>
+                )}
 
                 {/* Voice Note Button */}
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={showVoice || Boolean(file) || text.length > 0 || disabled}
-                    onClick={() => setShowVoice(true)}
-                    aria-label="Record voice message"
-                    className="size-9 rounded-full text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 transition-colors shrink-0"
-                >
-                    <Mic className="size-4" />
-                </Button>
+                {!disableVoice && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={showVoice || Boolean(file) || text.length > 0 || disabled}
+                        onClick={() => setShowVoice(true)}
+                        aria-label="Record voice message"
+                        className="size-9 rounded-full text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 transition-colors shrink-0"
+                    >
+                        <Mic className="size-4" />
+                    </Button>
+                )}
 
                 {/* Main Text Input (textarea to block password managers) */}
                 {!showVoice && (

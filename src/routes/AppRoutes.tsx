@@ -13,6 +13,7 @@ import Register from "../pages/auth/Register";
 import ChatList from "../pages/ChatList";
 import ChatView from "../pages/ChatView";
 import Profile from "../pages/Profile";
+import SupportChatView from "../pages/SupportChatView";
 const AppRoutes = () => {
     return (
         <BrowserRouter>
@@ -41,6 +42,7 @@ const AppRoutes = () => {
 
                 <Route path="/" element={<ProtectedRoute><ChatList /></ProtectedRoute>} />
                 <Route path="/chats/:chatId" element={<ProtectedRoute><ChatView /></ProtectedRoute>} />
+                <Route path="/support" element={<ProtectedRoute><SupportChatView /></ProtectedRoute>} />
 
                 <Route
                     path="/profile"

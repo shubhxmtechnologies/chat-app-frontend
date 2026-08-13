@@ -656,14 +656,31 @@ const Profile = () => {
                                             {nameSuccess}
                                         </span>
                                     ) : <div />}
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        disabled={savingName || !nameDirty}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
-                                    >
-                                        {savingName ? "Saving…" : "Save Name"}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        {nameDirty && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setFirstName(user.name?.firstName || "");
+                                                    setLastName(user.name?.lastName || "");
+                                                    setNameErrors({});
+                                                }}
+                                                className="h-9 px-4 rounded-xl font-medium text-muted-foreground hover:text-foreground"
+                                            >
+                                                Cancel
+                                            </Button>
+                                        )}
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            disabled={savingName || !nameDirty}
+                                            className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
+                                        >
+                                            {savingName ? "Saving…" : "Save Name"}
+                                        </Button>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -706,14 +723,30 @@ const Profile = () => {
                                             {bioSuccess}
                                         </span>
                                     ) : <div />}
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        disabled={savingBio || !bioDirty}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
-                                    >
-                                        {savingBio ? "Saving…" : "Save Bio"}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        {bioDirty && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setBio(user.bio || "");
+                                                    setBioError("");
+                                                }}
+                                                className="h-9 px-4 rounded-xl font-medium text-muted-foreground hover:text-foreground"
+                                            >
+                                                Cancel
+                                            </Button>
+                                        )}
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            disabled={savingBio || !bioDirty}
+                                            className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
+                                        >
+                                            {savingBio ? "Saving…" : "Save Bio"}
+                                        </Button>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -796,14 +829,30 @@ const Profile = () => {
                                             {emailSuccess}
                                         </span>
                                     ) : <div />}
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        disabled={savingEmail || !emailDirty}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
-                                    >
-                                        {savingEmail ? "Saving…" : "Update Email"}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        {emailDirty && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setEmail(user.email || "");
+                                                    setEmailError("");
+                                                }}
+                                                className="h-9 px-4 rounded-xl font-medium text-muted-foreground hover:text-foreground"
+                                            >
+                                                Cancel
+                                            </Button>
+                                        )}
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            disabled={savingEmail || !emailDirty}
+                                            className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
+                                        >
+                                            {savingEmail ? "Saving…" : "Update Email"}
+                                        </Button>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -910,14 +959,32 @@ const Profile = () => {
                                             {passwordSuccess}
                                         </span>
                                     ) : <div />}
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        disabled={savingPassword || !passwordFilled}
-                                        className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
-                                    >
-                                        {savingPassword ? "Updating…" : "Change Password"}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        {(currentPassword || newPassword || confirmNewPassword) && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setCurrentPassword("");
+                                                    setNewPassword("");
+                                                    setConfirmNewPassword("");
+                                                    setPasswordErrors({});
+                                                }}
+                                                className="h-9 px-4 rounded-xl font-medium text-muted-foreground hover:text-foreground"
+                                            >
+                                                Cancel
+                                            </Button>
+                                        )}
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            disabled={savingPassword || !passwordFilled}
+                                            className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
+                                        >
+                                            {savingPassword ? "Updating…" : "Change Password"}
+                                        </Button>
+                                    </div>
                                 </div>
                             </form>
                         </div>

@@ -21,7 +21,10 @@ import {
     BellOff,
     Maximize2,
     Minimize2,
+    Bug,
 } from "lucide-react";
+
+import { getSupportTicket } from "@/api/support.api";
 
 import { playReceiveSound } from "@/utils/sound.util";
 
@@ -50,6 +53,7 @@ const ChatList = () => {
     const [typingChats, setTypingChats] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [supportUnreadCount, setSupportUnreadCount] = useState(0);
 
     // -- Pull-to-Refresh state --
     const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -165,8 +169,12 @@ const ChatList = () => {
                 setLoading(true);
             }
             setError("");
-            const data = await getUserChats(isManualRefresh || forceRefetch);
+            const [data, supportTicket] = await Promise.all([
+                getUserChats(isManualRefresh || forceRefetch),
+                getSupportTicket().catch(() => null)
+            ]);
             setChats(data);
+            if (supportTicket) setSupportUnreadCount(supportTicket.unreadCount);
         } catch (err) {
             if (err instanceof Error) {
                 setError(err.message);
@@ -347,12 +355,28 @@ const ChatList = () => {
             setTypingChats(prev => ({ ...prev, [chatId]: false }));
         };
 
+        const handleSupportMessage = () => {
+            setSupportUnreadCount(prev => prev + 1);
+            try {
+                const currentUser = userRef.current;
+                if (!currentUser?.globalMute) {
+                    playReceiveSound();
+                }
+            } catch {}
+        };
+
+        const handleSupportTicketUpdated = (ticket: any) => {
+            setSupportUnreadCount(ticket.unreadCount);
+        };
+
         socket.on("receive_message", handleReceiveMessage);
         socket.on("message_seen", handleMessageSeen);
         socket.on("chat_deleted_for_me", handleChatDeletedForMe);
         socket.on("chat_deleted_for_everyone", handleChatDeletedForEveryone);
         socket.on("user_typing", handleUserTyping);
         socket.on("user_stop_typing", handleUserStopTyping);
+        socket.on("support_message", handleSupportMessage);
+        socket.on("support_ticket_updated", handleSupportTicketUpdated);
 
         return () => {
             socket.off("receive_message", handleReceiveMessage);
@@ -361,6 +385,8 @@ const ChatList = () => {
             socket.off("chat_deleted_for_everyone", handleChatDeletedForEveryone);
             socket.off("user_typing", handleUserTyping);
             socket.off("user_stop_typing", handleUserStopTyping);
+            socket.off("support_message", handleSupportMessage);
+            socket.off("support_ticket_updated", handleSupportTicketUpdated);
         };
     }, [user?.id]);
 
@@ -987,6 +1013,24 @@ const ChatList = () => {
                         <span>Full Screen</span>
                     </>
                 )}
+            </button>
+
+            {/* Developer Contact Button */}
+            <button
+                type="button"
+                onClick={() => navigate("/support")}
+                aria-label="Developer Contact"
+                className="fixed bottom-5 left-5 z-30 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-card/90 border border-border shadow-lg backdrop-blur-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-card active:scale-95 transition-all cursor-pointer hover:shadow-emerald-500/10"
+            >
+                <div className="relative">
+                    <Bug className="size-4 text-emerald-500" />
+                    {supportUnreadCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-3.5 h-3.5 px-1 rounded-full bg-destructive text-[9px] text-white font-bold animate-pulse">
+                            {supportUnreadCount}
+                        </span>
+                    )}
+                </div>
+                <span>Dev Contact</span>
             </button>
         </div>
     );
