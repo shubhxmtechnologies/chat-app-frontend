@@ -20,6 +20,23 @@ const getAudioContext = (): AudioContext | null => {
     }
 };
 
+let receiveAudio: HTMLAudioElement | null = null;
+
+/**
+ * Preloads the notification sound so it plays instantly when a message arrives
+ */
+export const preloadReceiveSound = () => {
+    try {
+        if (typeof window !== "undefined" && !receiveAudio) {
+            receiveAudio = new Audio("/notification.wav");
+            receiveAudio.preload = "auto";
+            receiveAudio.load(); // Fetch and decode the audio file immediately
+        }
+    } catch (e) {
+        console.warn("Failed to preload sound:", e);
+    }
+};
+
 /**
  * Play crisp message send "pop/swoosh" tone
  */
@@ -55,8 +72,12 @@ export const playSendSound = () => {
  */
 export const playReceiveSound = () => {
     try {
-        const audio = new Audio("/notification.wav");
-        audio.play().catch(() => {
+        if (!receiveAudio) {
+            receiveAudio = new Audio("/notification.wav");
+            receiveAudio.preload = "auto";
+        }
+        receiveAudio.currentTime = 0; // Reset to start
+        receiveAudio.play().catch(() => {
             // Web Audio API fallback chime
             const ctx = getAudioContext();
             if (!ctx) return;

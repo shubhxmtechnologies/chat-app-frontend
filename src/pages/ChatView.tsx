@@ -29,8 +29,19 @@ import { getRelativeTime } from "@/utils/time.util";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { preloadReceiveSound } from "@/utils/sound.util";
 import MessageBubble from "@/components/MessageBubble";
+import { format, isToday, isYesterday } from "date-fns";
 import MessageInput from "@/components/MessageInput";
+
+// Helper for date divider
+const formatDateDivider = (dateString?: Date | string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isToday(date)) return "Today";
+    if (isYesterday(date)) return "Yesterday";
+    return format(date, "d MMM yyyy"); // e.g. 12 Aug 2026
+};
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 import type { Chat } from "@/types/chat.types";
@@ -188,6 +199,13 @@ const previousScrollHeightRef = useRef<number>(0);
             console.error("Failed to copy handle:", err);
         }
     };
+
+    // Preload sound when user starts typing
+    useEffect(() => {
+        if (isTyping) {
+            preloadReceiveSound();
+        }
+    }, [isTyping]);
 
     // Realtime typing signals
     useEffect(() => {
@@ -756,26 +774,41 @@ const previousScrollHeightRef = useRef<number>(0);
                         </div>
                     ) : (
                         /* Message List */
-                        messages.map((message) => (
-                            <React.Fragment key={message._id || message.clientMessageId}>
-                                {unseenDividerId === (message.clientMessageId || message._id) && (
-                                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center my-4 w-full relative z-10">
-                                        <div className="bg-primary/10 text-primary text-[12px] font-semibold px-4 py-1.5 rounded-full border border-primary/20 shadow-sm backdrop-blur-md">
-                                            Unread Messages
+                        messages.map((message, index) => {
+                            const currentMessageDate = new Date(message.createdAt || new Date()).toDateString();
+                            const previousMessageDate = index > 0 
+                                ? new Date(messages[index - 1].createdAt || new Date()).toDateString() 
+                                : null;
+                            const showDateDivider = currentMessageDate !== previousMessageDate;
+
+                            return (
+                                <React.Fragment key={message._id || message.clientMessageId}>
+                                    {showDateDivider && (
+                                        <div className="flex items-center justify-center my-6 w-full relative z-10">
+                                            <div className="bg-card text-muted-foreground text-xs font-medium px-4 py-1.5 rounded-full shadow-sm border border-border/40">
+                                                {formatDateDivider(message.createdAt)}
+                                            </div>
                                         </div>
-                                    </motion.div>
-                                )}
-                                <MessageBubble
-                                    message={message}
-                                    isMine={message.sender === user?.id}
-                                    onDeleteLocal={handleDeleteLocal}
-                                    onEditLocal={handleEditLocal}
-                                    onDeleteForEveryoneLocal={handleDeleteForEveryoneLocal}
-                                    onRetry={retryMessage}
-                                    onReply={(msg) => setReplyingToMessage(msg)}
-                                />
-                            </React.Fragment>
-                        ))
+                                    )}
+                                    {unseenDividerId === (message.clientMessageId || message._id) && (
+                                        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center my-4 w-full relative z-10">
+                                            <div className="bg-primary/10 text-primary text-[12px] font-semibold px-4 py-1.5 rounded-full border border-primary/20 shadow-sm backdrop-blur-md">
+                                                Unread Messages
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                    <MessageBubble
+                                        message={message}
+                                        isMine={message.sender === user?.id}
+                                        onDeleteLocal={handleDeleteLocal}
+                                        onEditLocal={handleEditLocal}
+                                        onDeleteForEveryoneLocal={handleDeleteForEveryoneLocal}
+                                        onRetry={retryMessage}
+                                        onReply={(msg) => setReplyingToMessage(msg)}
+                                    />
+                                </React.Fragment>
+                            );
+                        })
                     )}
 
 
