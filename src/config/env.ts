@@ -12,4 +12,5 @@ function getEnv(key: string): string {
 
 export const envConfig = {
     API_URL: getEnv("VITE_API_URL"),
+    VAPID_PUBLIC_KEY: getEnv("VITE_VAPID_PUBLIC_KEY"),
 } as const;

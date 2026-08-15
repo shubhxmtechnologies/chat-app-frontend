@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 
 import { getSupportTicket } from "@/api/support.api";
+import { subscribeUserToPush } from "@/utils/push.util";
+import { envConfig } from "@/config/env";
 
 import { playReceiveSound } from "@/utils/sound.util";
 
@@ -54,6 +56,64 @@ const ChatList = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [supportUnreadCount, setSupportUnreadCount] = useState(0);
+
+    // Push notification modal state
+    const [showPushModal, setShowPushModal] = useState(false);
+    const [pushModalStatus, setPushModalStatus] = useState<"idle" | "loading" | "error">("idle");
+
+    useEffect(() => {
+        if (!user) return;
+        
+        const isPushSupported = () => 
+            "Notification" in window && 
+            "serviceWorker" in navigator && 
+            "PushManager" in window;
+            
+        if (!isPushSupported()) return;
+        
+        // Don't show if already decided
+        if (Notification.permission === "granted" || Notification.permission === "denied") return;
+        
+        // Check local storage for preferences
+        if (localStorage.getItem("pushPromptDismissed") === "true") return;
+        
+        const remindLaterTime = localStorage.getItem("pushPromptRemindLater");
+        if (remindLaterTime) {
+            const timePassed = Date.now() - parseInt(remindLaterTime, 10);
+            if (timePassed < 24 * 60 * 60 * 1000) return; // 24 hours
+        }
+
+        // Delay showing it so it's not aggressive
+        const timer = setTimeout(() => {
+            setShowPushModal(true);
+        }, 3000);
+
+        return () => clearTimeout(timer);
+    }, [user]);
+
+    const handlePushAllow = async () => {
+        setPushModalStatus("loading");
+        try {
+            const success = await subscribeUserToPush(envConfig.VAPID_PUBLIC_KEY);
+            if (success) {
+                setShowPushModal(false);
+            } else {
+                setPushModalStatus("error");
+            }
+        } catch (e) {
+            setPushModalStatus("error");
+        }
+    };
+
+    const handlePushRemind = () => {
+        localStorage.setItem("pushPromptRemindLater", Date.now().toString());
+        setShowPushModal(false);
+    };
+
+    const handlePushDismiss = () => {
+        localStorage.setItem("pushPromptDismissed", "true");
+        setShowPushModal(false);
+    };
 
     // -- Pull-to-Refresh state --
     const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -1032,6 +1092,66 @@ const ChatList = () => {
                 </div>
                 <span>Dev Contact</span>
             </button>
+
+            {/* Push Notification Prompt Modal */}
+            <AnimatePresence>
+                {showPushModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-border/60 text-center"
+                        >
+                            <div className="size-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Bell className="size-6" />
+                            </div>
+                            <h3 className="text-lg font-bold text-foreground mb-2">
+                                Never Miss a Message
+                            </h3>
+                            <p className="text-sm text-muted-foreground mb-6">
+                                Enable notifications to know when someone messages you, even if the app is closed.
+                            </p>
+                            
+                            {pushModalStatus === "error" && (
+                                <p className="text-xs text-destructive mb-4">Failed to enable notifications. Please check browser permissions.</p>
+                            )}
+
+                            <div className="space-y-2.5">
+                                <Button
+                                    className="w-full rounded-xl font-bold"
+                                    onClick={handlePushAllow}
+                                    disabled={pushModalStatus === "loading"}
+                                >
+                                    {pushModalStatus === "loading" ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                                    Allow Notifications
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    className="w-full rounded-xl font-medium"
+                                    onClick={handlePushRemind}
+                                    disabled={pushModalStatus === "loading"}
+                                >
+                                    Remind me later
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    className="w-full rounded-xl font-medium text-muted-foreground"
+                                    onClick={handlePushDismiss}
+                                    disabled={pushModalStatus === "loading"}
+                                >
+                                    Don't show again
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

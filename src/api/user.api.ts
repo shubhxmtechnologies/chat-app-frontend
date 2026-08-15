@@ -240,3 +240,12 @@ export const toggleChatMute = async (chatId: string): Promise<string[]> => {
         throw error;
     }
 };
+
+export const savePushSubscription = async (subscription: PushSubscription): Promise<void> => {
+    try {
+        await axiosClient.post("/users/me/push-subscription", { subscription });
+    } catch (error) {
+        console.error("Failed to save push subscription", error);
+        throw error;
+    }
+};

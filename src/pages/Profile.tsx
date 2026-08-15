@@ -17,6 +17,7 @@ import {
     X,
     UserCheck,
     Loader2,
+    Bell,
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -39,6 +40,8 @@ import {
 } from "@/utils/validators";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { subscribeUserToPush } from "@/utils/push.util";
+import { envConfig } from "@/config/env";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +67,44 @@ const Profile = () => {
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [avatarError, setAvatarError] = useState("");
     const [avatarSuccess, setAvatarSuccess] = useState("");
+
+    // Push Notifications state
+    const [pushStatus, setPushStatus] = useState<"idle" | "loading" | "enabled" | "error" | "unsupported">("idle");
+    const [pushError, setPushError] = useState("");
+
+    const isPushSupported = () => 
+        "Notification" in window && 
+        "serviceWorker" in navigator && 
+        "PushManager" in window;
+
+    useEffect(() => {
+        if (!isPushSupported()) {
+            setPushStatus("unsupported");
+            return;
+        }
+
+        if (Notification.permission === "granted") {
+            setPushStatus("enabled");
+        }
+    }, []);
+
+    const handleSubscribeToPush = async () => {
+        if (!isPushSupported()) return;
+        setPushStatus("loading");
+        setPushError("");
+        try {
+            const success = await subscribeUserToPush(envConfig.VAPID_PUBLIC_KEY);
+            if (success) {
+                setPushStatus("enabled");
+            } else {
+                setPushStatus("error");
+                setPushError("Failed to enable notifications. Please check browser permissions.");
+            }
+        } catch (err) {
+            setPushStatus("error");
+            setPushError("An error occurred while enabling notifications.");
+        }
+    };
 
     // Blocked user profile modal
     const [viewingBlockedUser, setViewingBlockedUser] = useState<SearchUser | null>(null);
@@ -784,6 +825,38 @@ const Profile = () => {
                 {/* TAB 2: SECURITY & EMAIL */}
                 {activeTab === "security" && (
                     <div className="space-y-6">
+                        {/* Push Notifications Card */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-bold text-foreground">
+                                    Offline Notifications
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Enable push notifications to receive messages even when the app is closed.
+                                </p>
+                                {pushError && <p className="text-xs text-destructive mt-1">{pushError}</p>}
+                                {pushStatus === "unsupported" && (
+                                    <p className="text-xs text-destructive mt-1">Your browser does not support Web Push.</p>
+                                )}
+                            </div>
+                            <Button
+                                type="button"
+                                variant={pushStatus === "enabled" ? "secondary" : "outline"}
+                                onClick={handleSubscribeToPush}
+                                disabled={pushStatus === "loading" || pushStatus === "enabled" || pushStatus === "unsupported"}
+                                className="h-9 px-4 rounded-xl font-medium gap-2 shrink-0"
+                            >
+                                {pushStatus === "loading" ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                ) : pushStatus === "enabled" ? (
+                                    <CheckCircle2 className="size-4 text-emerald-500" />
+                                ) : (
+                                    <Bell className="size-4" />
+                                )}
+                                <span>{pushStatus === "enabled" ? "Enabled" : "Enable"}</span>
+                            </Button>
+                        </div>
+
                         {/* Email Address Update */}
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                             <div className="flex items-center justify-between">
