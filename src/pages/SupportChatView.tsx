@@ -11,6 +11,7 @@ import {
 } from "@/api/support.api";
 import type { SupportTicket, SupportMessage } from "@/api/support.api";
 import { getRelativeTime } from "@/utils/time.util";
+import { renderTextWithLinks } from "@/utils/text.util";
 import { socket } from "@/socket/socketClient";
 
 export default function SupportChatView() {
@@ -163,8 +164,8 @@ export default function SupportChatView() {
                                     : "bg-card border border-border/40 text-card-foreground rounded-tl-sm"
                             }`}>
                                 {msg.text && (
-                                    <p className="text-[15px] leading-relaxed wrap-break-words whitespace-pre-wrap">
-                                        {msg.text}
+                                    <p className="text-[15px] leading-relaxed wrap-break-words break-all whitespace-pre-wrap">
+                                        {renderTextWithLinks(msg.text)}
                                     </p>
                                 )}
                                 <div className={`text-[10px] mt-1 text-right ${isMe ? "text-indigo-100/80" : "text-muted-foreground"}`}>

@@ -19,6 +19,7 @@ import {
 import type { Message } from "@/types/message.types";
 import { editMessage, deleteMessageForMe, deleteMessageForEveryone } from "@/api/message.api";
 import { cn } from "@/lib/utils";
+import { renderTextWithLinks } from "@/utils/text.util";
 import VoicePlayer from "./VoicePlayer";
 
 interface Props {
@@ -210,9 +211,20 @@ const MessageBubble = ({
                 isMine ? "justify-end" : "justify-start"
             )}
         >
-            <div
+            <motion.div
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.4}
+                onDragEnd={(_, info) => {
+                    const threshold = 60;
+                    if (isMine && info.offset.x < -threshold) {
+                        onReply?.(message);
+                    } else if (!isMine && info.offset.x > threshold) {
+                        onReply?.(message);
+                    }
+                }}
                 className={cn(
-                    "flex max-w-[85%] sm:max-w-[75%] items-center gap-2",
+                    "flex max-w-[85%] sm:max-w-[75%] items-center gap-2 cursor-pointer md:cursor-auto",
                     isMine ? "flex-row-reverse" : "flex-row"
                 )}
             >
@@ -235,7 +247,7 @@ const MessageBubble = ({
                             }
                         }}
                         className={cn(
-                            "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm",
+                            "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm select-none md:select-text",
                             isMine
                                 ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-lg shadow-indigo-500/10 font-normal"
                                 : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-lg shadow-xs"
@@ -302,8 +314,8 @@ const MessageBubble = ({
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="wrap-break-word whitespace-pre-wrap">
-                                        {message.text}
+                                    <div className="wrap-break-words break-all whitespace-pre-wrap">
+                                        {renderTextWithLinks(message.text!)}
                                         {message.isEdited && (
                                             <span
                                                 className={cn(
@@ -398,17 +410,26 @@ const MessageBubble = ({
                     {/* Floating Dropdown Menu for Actions */}
                     <AnimatePresence>
                         {isMenuOpen && !isEditing && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95, y: isMine ? 4 : -4 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: isMine ? 4 : -4 }}
-                                transition={{ duration: 0.15 }}
-                                className={cn(
-                                    "absolute bottom-full mb-1.5 z-40 w-44 rounded-xl border border-border bg-card shadow-lg p-1 space-y-0.5",
-                                    isMine ? "right-0" : "left-0"
-                                )}
-                                onClick={(e) => e.stopPropagation()} // Keep menu open if clicking inside it
-                            >
+                            <>
+                                {/* Universal Backdrop */}
+                                <motion.div 
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
+                                    onClick={() => setIsMenuOpen(false)}
+                                />
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.15 }}
+                                    className={cn(
+                                        "z-50 w-52 md:w-48 rounded-xl border border-border bg-card shadow-lg p-1 space-y-0.5",
+                                        "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" // Centered everywhere
+                                    )}
+                                    onClick={(e) => e.stopPropagation()} // Keep menu open if clicking inside it
+                                >
                                 {/* Reply Option (All) */}
                                 <button
                                     type="button"
@@ -487,6 +508,7 @@ const MessageBubble = ({
                                     </button>
                                 )}
                             </motion.div>
+                            </>
                         )}
                     </AnimatePresence>
                 </div>
@@ -511,7 +533,7 @@ const MessageBubble = ({
                     </button>
                 </div>
 
-            </div>
+            </motion.div>
 
             {/* Message Info Modal */}
             <AnimatePresence>
