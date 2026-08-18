@@ -66,6 +66,7 @@ const MessageInput = ({
 
     const fileRef = useRef<HTMLInputElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const lastSendTimeRef = useRef(0);
 
     useEffect(() => {
         if (replyingTo && inputRef.current) {
@@ -127,6 +128,13 @@ const MessageInput = ({
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
+
+        // Prevent client-side message flood / rapid double-clicks
+        const now = Date.now();
+        if (now - lastSendTimeRef.current < 250) {
+            return;
+        }
+        lastSendTimeRef.current = now;
 
         if (file && preview && onSendMedia) {
             try {

@@ -9,8 +9,13 @@ export const socket: Socket = io(
     SOCKET_URL,
     {
         autoConnect: false,
-
         withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        randomizationFactor: 0.5, // Adds jitter to prevent reconnection storms on backend
+        timeout: 10000,
     }
 );
 
