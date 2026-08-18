@@ -13,9 +13,17 @@ import type { SupportTicket, SupportMessage } from "@/api/support.api";
 import { getRelativeTime } from "@/utils/time.util";
 import { renderTextWithLinks } from "@/utils/text.util";
 import { socket } from "@/socket/socketClient";
+import { playReceiveSound, playSendSound } from "@/utils/sound.util";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SupportChatView() {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const userRef = useRef(user);
+
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
     
     const [ticket, setTicket] = useState<SupportTicket | null>(null);
     const [loading, setLoading] = useState(true);
@@ -42,6 +50,16 @@ export default function SupportChatView() {
 
     useEffect(() => {
         const handleNewMessage = (msg: SupportMessage) => {
+            if (msg.sender === "developer") {
+                try {
+                    if (!userRef.current?.globalMute) {
+                        playReceiveSound();
+                    }
+                } catch (e) {
+                    console.warn("Failed to play support receive sound:", e);
+                }
+            }
+
             setTicket((prev) => {
                 if (!prev) return prev;
                 return {
@@ -78,6 +96,7 @@ export default function SupportChatView() {
         if (!text.trim()) return;
         if (!ticket?.canSend || ticket?.isBlocked) return;
         
+        playSendSound();
         try {
             setSending(true);
             const updatedTicket = await sendSupportMessage(text);

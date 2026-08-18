@@ -195,14 +195,16 @@ const MessageInput = ({
 
             {/* Reply Preview Box */}
             {replyingTo && (
-                <div className="flex items-center justify-between px-3 py-1.5 mx-1 rounded-2xl bg-primary/10 border-l-4 border-primary">
-                    <div className="flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-1.5 mx-1 rounded-2xl bg-primary/10 border-l-4 border-primary min-w-0 max-w-full overflow-hidden">
+                    <div className="flex flex-col overflow-hidden min-w-0 flex-1 mr-2">
                         <span className="text-xs font-semibold text-primary">Replying to message</span>
-                        <span className="text-sm truncate text-muted-foreground">
-                            {replyingTo.messageType === "text" ? replyingTo.text : `[${replyingTo.messageType}]`}
+                        <span className="text-sm truncate break-all text-muted-foreground">
+                            {replyingTo.messageType === "text"
+                                ? (replyingTo.text && replyingTo.text.length > 80 ? `${replyingTo.text.slice(0, 80)}…` : replyingTo.text)
+                                : `[${replyingTo.messageType === "voice" ? "Voice message" : replyingTo.messageType === "image" ? "Photo" : replyingTo.messageType}]`}
                         </span>
                     </div>
-                    <button type="button" onClick={onCancelReply} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-muted-foreground transition-colors">
+                    <button type="button" onClick={onCancelReply} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-muted-foreground transition-colors shrink-0">
                         <X className="size-4" />
                     </button>
                 </div>

@@ -50,27 +50,21 @@ export const useChatSocket = ({
                 unreadCount: message.sender !== currentUserId ? (chat.unreadCount || 0) + 1 : chat.unreadCount,
                 updatedAt: message.createdAt,
             }));
+            // Play sound if incoming message from another user and not muted
+            if (message.sender !== currentUserId) {
+                try {
+                    const currentUser = userRef.current;
+                    if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
+                        playReceiveSound();
+                    }
+                } catch (e) {}
+            }
+
             if (message.chat !== chatId) {
-                if (message.sender !== currentUserId) {
-                    try {
-                        const currentUser = userRef.current;
-                        if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
-                            playReceiveSound();
-                        }
-                    } catch (e) {}
-                }
                 return;
             }
 
             setMessages((previous) => {
-                if (message.sender !== currentUserId) {
-                    try {
-                        const currentUser = userRef.current;
-                        if (!currentUser?.globalMute && !currentUser?.mutedChats?.includes(message.chat)) {
-                            playReceiveSound();
-                        }
-                    } catch (e) { }
-                }
                 /*
                  * Already have this real message?
                  */

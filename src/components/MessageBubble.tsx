@@ -224,13 +224,13 @@ const MessageBubble = ({
                     }
                 }}
                 className={cn(
-                    "flex max-w-[85%] sm:max-w-[75%] items-center gap-2 cursor-pointer md:cursor-auto",
+                    "flex max-w-[85%] sm:max-w-[75%] items-center gap-2 cursor-pointer md:cursor-auto min-w-0",
                     isMine ? "flex-row-reverse" : "flex-row"
                 )}
             >
                 <div
                     className={cn(
-                        "flex flex-col relative",
+                        "flex flex-col relative max-w-full min-w-0",
                         isMine ? "items-end" : "items-start"
                     )}
                 >
@@ -247,7 +247,7 @@ const MessageBubble = ({
                             }
                         }}
                         className={cn(
-                            "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm select-none md:select-text",
+                            "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm select-none md:select-text max-w-full min-w-0 overflow-hidden",
                             isMine
                                 ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-lg shadow-indigo-500/10 font-normal"
                                 : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-lg shadow-xs"
@@ -269,19 +269,23 @@ const MessageBubble = ({
                                     }
                                 }}
                                 className={cn(
-                                    "mb-2 p-2 rounded-lg text-[12px] opacity-80 border-l-2 cursor-pointer hover:opacity-100 transition-opacity",
+                                    "mb-2 p-2 rounded-lg text-[12px] opacity-80 border-l-2 cursor-pointer hover:opacity-100 transition-opacity max-w-full min-w-0 overflow-hidden",
                                     isMine ? "bg-white/10 border-white/40 text-white" : "bg-black/5 dark:bg-white/5 border-primary text-foreground"
                                 )}
                             >
-                                <span className="line-clamp-2 italic">
-                                    {message.replyTo.messageType === "text" ? message.replyTo.text : `[${message.replyTo.messageType}]`}
+                                <span className="block max-w-full truncate break-all italic">
+                                    {message.replyTo.messageType === "text"
+                                        ? (message.replyTo.text && message.replyTo.text.length > 70
+                                            ? `${message.replyTo.text.slice(0, 70)}…`
+                                            : message.replyTo.text)
+                                        : `[${message.replyTo.messageType === "voice" ? "Voice message" : message.replyTo.messageType === "image" ? "Photo" : message.replyTo.messageType}]`}
                                 </span>
                             </div>
                         )}
 
                         {/* Content Rendering based on Type */}
                         {message.messageType === "text" && (
-                            <div>
+                            <div className="max-w-full min-w-0 overflow-hidden">
                                 {isEditing ? (
                                     <div className="flex items-center gap-1.5 my-0.5">
                                         <input
@@ -314,7 +318,7 @@ const MessageBubble = ({
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="wrap-obreak-words break-all whitespace-pre-wrap">
+                                    <div className="wrap-break-words break-all whitespace-pre-wrap max-w-full min-w-0">
                                         {renderTextWithLinks(message.text!)}
                                         {message.isEdited && (
                                             <span
