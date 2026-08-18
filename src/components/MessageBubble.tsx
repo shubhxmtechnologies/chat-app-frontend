@@ -314,7 +314,7 @@ const MessageBubble = ({
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="wrap-break-words break-all whitespace-pre-wrap">
+                                    <div className="wrap-obreak-words break-all whitespace-pre-wrap">
                                         {renderTextWithLinks(message.text!)}
                                         {message.isEdited && (
                                             <span
