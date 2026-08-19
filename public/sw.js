@@ -5,6 +5,21 @@ self.addEventListener("push", (event) => {
         (async () => {
             try {
                 const data = event.data.json();
+                
+                // If the user has this exact chat open and focused in an active window, suppress OS popup banner
+                const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+                const isChatActivelyOpen = windowClients.some((client) => {
+                    return client.visibilityState === "visible" &&
+                        client.focused &&
+                        data.chatId &&
+                        client.url &&
+                        client.url.includes(`/chats/${data.chatId}`);
+                });
+
+                if (isChatActivelyOpen) {
+                    return;
+                }
+
                 const tag = data.tag || (data.chatId ? `chat_${data.chatId}` : "general_notification");
                 const senderName = data.senderName || "Someone";
                 const newBody = data.body || "You have a new message!";

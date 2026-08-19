@@ -79,7 +79,8 @@ const ChatView = () => {
     const { handleTyping, stopTyping } = useTypingIndicator(chatId ?? "", otherUser?._id);
 
     const containerRef = useRef<HTMLDivElement>(null);
-const previousScrollHeightRef = useRef<number>(0);
+    const scrollAnchorRef = useRef<{ prevScrollHeight: number; prevScrollTop: number } | null>(null);
+    const isFetchingOlderRef = useRef<boolean>(false);
     const isNearBottomRef = useRef<boolean>(true);
     const isInitialLoadRef = useRef<boolean>(true);
     const lastMessageIdRef = useRef<string | null>(null);
@@ -268,35 +269,36 @@ const previousScrollHeightRef = useRef<number>(0);
         }
     };
 
-    // Auto-scroll when keyboard opens, closes, or viewport shrinks
+    // Auto-scroll when keyboard opens or viewport shrinks on mobile
     useEffect(() => {
+        let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+
         const handleViewportResize = () => {
-            if (isNearBottomRef.current) {
-                scrollToBottom(true);
-            }
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (isNearBottomRef.current) {
+                    scrollToBottom(true);
+                }
+            }, 100);
         };
 
         if (window.visualViewport) {
             window.visualViewport.addEventListener("resize", handleViewportResize);
-            window.visualViewport.addEventListener("scroll", handleViewportResize);
         }
         window.addEventListener("resize", handleViewportResize);
 
         return () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
             if (window.visualViewport) {
                 window.visualViewport.removeEventListener("resize", handleViewportResize);
-                window.visualViewport.removeEventListener("scroll", handleViewportResize);
             }
             window.removeEventListener("resize", handleViewportResize);
         };
     }, []);
 
-    // When user focuses input on mobile, ensure bottom message is visible
+    // When user focuses input on mobile, record bottom visibility state cleanly
     const handleInputFocus = () => {
         isNearBottomRef.current = true;
-        setTimeout(() => scrollToBottom(true), 50);
-        setTimeout(() => scrollToBottom(true), 150);
-        setTimeout(() => scrollToBottom(true), 300);
     };
 
     // Auto-scroll if typing indicator appears while at bottom
@@ -307,8 +309,9 @@ const previousScrollHeightRef = useRef<number>(0);
     }, [isTyping]);
 
     const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.currentTarget;
         try {
-            const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+            const { scrollTop, scrollHeight, clientHeight } = target;
             isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
 
             setShowNewMessagePill(!isNearBottomRef.current);
@@ -317,15 +320,20 @@ const previousScrollHeightRef = useRef<number>(0);
         }
 
         // Pagination for older messages
-        if (!chatId || !nextCursor || loadingOlder) return;
+        if (!chatId || !nextCursor || isFetchingOlderRef.current || loadingOlder) return;
 
-        if (e.currentTarget.scrollTop < 80) {
+        if (target.scrollTop < 100) {
             try {
+                isFetchingOlderRef.current = true;
                 setLoadingOlder(true);
+
                 const data = await getMessages(chatId, nextCursor);
 
                 if (containerRef.current) {
-                    previousScrollHeightRef.current = containerRef.current.scrollHeight;
+                    scrollAnchorRef.current = {
+                        prevScrollHeight: containerRef.current.scrollHeight,
+                        prevScrollTop: containerRef.current.scrollTop,
+                    };
                 }
 
                 setMessages((prev) => [...data.messages.slice().reverse(), ...prev]);
@@ -333,6 +341,7 @@ const previousScrollHeightRef = useRef<number>(0);
             } catch (err) {
                 console.error("Failed to load older messages:", err);
             } finally {
+                isFetchingOlderRef.current = false;
                 setLoadingOlder(false);
             }
         }
@@ -340,25 +349,22 @@ const previousScrollHeightRef = useRef<number>(0);
 
     useLayoutEffect(() => {
         try {
-            if (previousScrollHeightRef.current > 0 && containerRef.current) {
-                const diff =
-                    containerRef.current.scrollHeight - previousScrollHeightRef.current;
-                containerRef.current.scrollTop += diff;
-                previousScrollHeightRef.current = 0;
+            // Anchor scroll position when older messages are prepended to top
+            if (scrollAnchorRef.current && containerRef.current) {
+                const heightDiff =
+                    containerRef.current.scrollHeight - scrollAnchorRef.current.prevScrollHeight;
+                containerRef.current.scrollTop =
+                    scrollAnchorRef.current.prevScrollTop + heightDiff;
+                scrollAnchorRef.current = null;
+                return;
             }
-        } catch (err) {
-            console.error("Scroll position preservation error:", err);
-        }
-    }, [messages.length]);
 
-    useLayoutEffect(() => {
-        try {
             if (messages.length === 0) return;
 
             const currentLastMessageId = messages[messages.length - 1]?._id;
 
             if (isInitialLoadRef.current) {
-                scrollToBottom();
+                scrollToBottom(true);
                 isInitialLoadRef.current = false;
                 lastMessageIdRef.current = currentLastMessageId;
                 return;
@@ -374,7 +380,7 @@ const previousScrollHeightRef = useRef<number>(0);
                 }
             }
         } catch (err) {
-            console.error("Auto-scroll failed:", err);
+            console.error("Scroll management error:", err);
         }
     }, [messages]);
 
@@ -734,8 +740,16 @@ const previousScrollHeightRef = useRef<number>(0);
                 >
                     {/* Older Messages Loading Indicator */}
                     {loadingOlder && (
-                        <div className="flex justify-center py-2">
-                            <Skeleton className="h-6 w-36 rounded-full" />
+                        <div className="flex items-center justify-center gap-2 py-2 px-3.5 my-1 mx-auto w-fit rounded-full bg-secondary/80 border border-border/60 text-xs text-muted-foreground shadow-xs animate-pulse">
+                            <Loader2 className="size-3.5 animate-spin text-primary" />
+                            <span>Fetching older messages...</span>
+                        </div>
+                    )}
+
+                    {/* Beginning of message history indicator */}
+                    {!nextCursor && !loading && messages.length > 15 && (
+                        <div className="text-center py-2 text-[11px] text-muted-foreground/60 select-none">
+                            Beginning of message history
                         </div>
                     )}
 
@@ -878,9 +892,6 @@ const previousScrollHeightRef = useRef<number>(0);
                         onTyping={() => {
                             if (!isBlocked) {
                                 handleTyping();
-                            }
-                            if (isNearBottomRef.current) {
-                                scrollToBottom(true);
                             }
                         }}
                         onStopTyping={stopTyping}

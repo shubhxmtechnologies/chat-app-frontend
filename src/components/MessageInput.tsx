@@ -74,6 +74,21 @@ const MessageInput = ({
         }
     }, [replyingTo]);
 
+    // Auto-focus on desktop / PC when opening a chat
+    useEffect(() => {
+        const isDesktop =
+            typeof window !== "undefined" &&
+            window.matchMedia("(min-width: 768px)").matches &&
+            !("ontouchstart" in window);
+
+        if (isDesktop && !disabled && !blockedByMe && !blockedByThem && !preview && !file && !showVoice) {
+            const timer = setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [disabled, blockedByMe, blockedByThem, preview, file, showVoice]);
+
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(true);
@@ -273,12 +288,12 @@ const MessageInput = ({
                 )}
 
                 {/* Voice Note Button */}
-                {!disableVoice && (
+                {!disableVoice && !preview && !file && (
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        disabled={showVoice || Boolean(file) || text.length > 0 || disabled}
+                        disabled={showVoice || text.length > 0 || disabled}
                         onClick={() => setShowVoice(true)}
                         aria-label="Record voice message"
                         className="size-9 rounded-full text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 transition-colors shrink-0"
@@ -287,61 +302,68 @@ const MessageInput = ({
                     </Button>
                 )}
 
-                {/* Main Text Input (textarea to block password managers) */}
-                {!showVoice && (
-                    <>
-                        <textarea
-                            ref={inputRef}
-                            name="txt_compose_area"
-                            id="txt_compose_area"
-                            autoComplete="off"
-                            autoCorrect="off"
-                            autoCapitalize="sentences"
-                            spellCheck={true}
-                            data-lpignore="true"
-                            data-1p-ignore="true"
-                            data-1password-ignore="true"
-                            data-form-type="other"
-                            enterKeyHint="send"
-                            role="textbox"
-                            rows={1}
-                            placeholder="Type a message..."
-                            value={text}
-                            onFocus={onFocus}
-                            onChange={(e) => {
-                                setText(e.target.value.replace(/\n/g, ""));
-                                onTyping();
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    submit(e as unknown as FormEvent);
-                                }
-                            }}
-                            disabled={Boolean(file) || disabled}
-                            className="flex-1 bg-transparent px-2 text-[14px] leading-9 h-9 text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50 resize-none overflow-hidden whitespace-nowrap scrollbar-none"
-                        />
-
-                        {/* Centered Vibrant Send Button */}
-                        <Button
-                            type="submit"
-                            size="icon"
-                            disabled={!text.trim() && !file}
-                            onMouseDown={(e) => {
-                                // Keep focus in input to prevent keyboard from closing
+                {/* Main Text Input (hidden when image or voice is selected) */}
+                {!showVoice && !preview && !file && (
+                    <textarea
+                        ref={inputRef}
+                        name="txt_compose_area"
+                        id="txt_compose_area"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="sentences"
+                        spellCheck={true}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-1password-ignore="true"
+                        data-form-type="other"
+                        enterKeyHint="send"
+                        role="textbox"
+                        rows={1}
+                        placeholder="Type a message..."
+                        value={text}
+                        onFocus={onFocus}
+                        onChange={(e) => {
+                            setText(e.target.value.replace(/\n/g, ""));
+                            onTyping();
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();
-                            }}
-                            aria-label="Send message"
-                            className={cn(
-                                "size-9 rounded-full shrink-0 transition-all duration-200 shadow-sm flex items-center justify-center",
-                                text.trim() || file
-                                    ? "bg-gradient-chat-sender text-white hover:opacity-95 hover:scale-105 active:scale-95 shadow-indigo-500/25 cursor-pointer"
-                                    : "bg-muted/80 text-muted-foreground/60 opacity-60 cursor-not-allowed"
-                            )}
-                        >
-                            <Send className="size-4 -ml-0.5 mt-0.5" />
-                        </Button>
-                    </>
+                                submit(e as unknown as FormEvent);
+                            }
+                        }}
+                        disabled={disabled}
+                        className="flex-1 bg-transparent px-2 text-[14px] leading-9 h-9 text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50 resize-none overflow-hidden whitespace-nowrap scrollbar-none"
+                    />
+                )}
+
+                {/* Image Placeholder Info Label when Image is Selected */}
+                {!showVoice && (preview || file) && (
+                    <div className="flex-1 px-2 text-[13px] text-muted-foreground italic truncate select-none">
+                        Ready to send photo
+                    </div>
+                )}
+
+                {/* Centered Vibrant Send Button */}
+                {!showVoice && (
+                    <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!text.trim() && !file}
+                        onMouseDown={(e) => {
+                            // Keep focus in input to prevent keyboard from closing
+                            e.preventDefault();
+                        }}
+                        aria-label="Send message"
+                        className={cn(
+                            "size-9 rounded-full shrink-0 transition-all duration-200 shadow-sm flex items-center justify-center",
+                            text.trim() || file
+                                ? "bg-gradient-chat-sender text-white hover:opacity-95 hover:scale-105 active:scale-95 shadow-indigo-500/25 cursor-pointer"
+                                : "bg-muted/80 text-muted-foreground/60 opacity-60 cursor-not-allowed"
+                        )}
+                    >
+                        <Send className="size-4 -ml-0.5 mt-0.5" />
+                    </Button>
                 )}
             </div>
         </form>
