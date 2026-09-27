@@ -12,6 +12,15 @@ import "./index.css";
 initAudioUnlock();
 preloadReceiveSound();
 
+// Register Service Worker for PWA installability and offline caching
+if ("serviceWorker" in navigator && typeof window !== "undefined") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((err) => {
+      console.warn("ServiceWorker registration failed:", err);
+    });
+  });
+}
+
 ReactDOM.createRoot(
   document.getElementById("root")!
 ).render(

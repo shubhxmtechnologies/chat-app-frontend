@@ -24,6 +24,7 @@ import {
     refresh as refreshApi,
     register as registerApi,
 } from "../api/auth.api";
+import { clearChatsCache } from "../api/chat.api";
 
 import { setAccessToken } from "../api/axiosClient";
 
@@ -130,6 +131,7 @@ export const AuthProvider = ({
         });
 
         setTokenRefreshFailHandler(() => {
+            clearChatsCache();
             disconnectSocket();
             setAuth({
                 status: "unauthenticated",
@@ -223,6 +225,7 @@ export const AuthProvider = ({
     const login = async (
         credentials: LoginInput
     ) => {
+        clearChatsCache();
         const data = await loginApi(
             credentials
         );
@@ -238,6 +241,7 @@ export const AuthProvider = ({
     const register = async (
         payload: RegisterInput
     ) => {
+        clearChatsCache();
         const data =
             await registerApi(payload);
 
@@ -258,6 +262,7 @@ export const AuthProvider = ({
                 error
             );
         } finally {
+            clearChatsCache();
             disconnectSocket();
 
             setAuth({

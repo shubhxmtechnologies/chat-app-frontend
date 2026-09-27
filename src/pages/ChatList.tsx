@@ -27,6 +27,7 @@ import {
 import { getSupportTicket } from "@/api/support.api";
 import { subscribeUserToPush } from "@/utils/push.util";
 import { envConfig } from "@/config/env";
+import { InstallPwaModal } from "@/components/InstallPwaModal";
 
 import { playReceiveSound } from "@/utils/sound.util";
 
@@ -230,7 +231,7 @@ const ChatList = () => {
             }
             setError("");
             const [data, supportTicket] = await Promise.all([
-                getUserChats(isManualRefresh || forceRefetch),
+                getUserChats(isManualRefresh || forceRefetch, user?.id),
                 getSupportTicket().catch(() => null)
             ]);
             setChats(data);
@@ -299,8 +300,12 @@ const ChatList = () => {
     };
 
     useEffect(() => {
-        void fetchChats();
-    }, []);
+        if (user?.id) {
+            void fetchChats(false, true);
+        } else {
+            setChats([]);
+        }
+    }, [user?.id]);
 
     // Global user discovery search via backend
     useEffect(() => {
@@ -643,6 +648,11 @@ const ChatList = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* PWA Install Banner */}
+            <div className="w-full max-w-180">
+                <InstallPwaModal />
+            </div>
 
             {/* Main Content Container (pull-to-refresh enabled) */}
             <main

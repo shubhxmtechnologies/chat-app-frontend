@@ -156,7 +156,9 @@ const MessageInput = ({
                 onSendMedia(file, preview, generateId());
                 cancelFile();
                 onStopTyping();
-                setTimeout(() => inputRef.current?.focus(), 0);
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                }
                 return;
             } catch (error) {
                 console.error("Failed to send media:", error);
@@ -168,8 +170,11 @@ const MessageInput = ({
 
         onSend(value, generateId());
         setText("");
+        if (inputRef.current) {
+            inputRef.current.style.height = "auto";
+            inputRef.current.focus();
+        }
         onStopTyping();
-        setTimeout(() => inputRef.current?.focus(), 0);
     };
 
     if (blockedByMe || blockedByThem) {
@@ -205,6 +210,12 @@ const MessageInput = ({
             noValidate
             data-form-type="other"
             data-lpignore="true"
+            onClick={(e) => {
+                const target = e.target as HTMLElement;
+                if (!target.closest("button") && !target.closest("input[type='file']")) {
+                    onFocus?.();
+                }
+            }}
             className={cn(
                 "flex flex-col gap-1.5 w-full relative p-1.5 sm:p-2 rounded-[28px] transition-all duration-300 shadow-md border",
                 isDragging ? "bg-primary/5 border-primary ring-2 ring-primary/50" : "bg-card border-border/70"
@@ -221,7 +232,7 @@ const MessageInput = ({
                 <div className="flex items-center justify-between px-3 py-1.5 mx-1 rounded-2xl bg-primary/10 border-l-4 border-primary min-w-0 max-w-full overflow-hidden">
                     <div className="flex flex-col overflow-hidden min-w-0 flex-1 mr-2">
                         <span className="text-xs font-semibold text-primary">Replying to message</span>
-                        <span className="text-sm truncate break-all text-muted-foreground">
+                        <span className="text-sm truncate text-muted-foreground">
                             {replyingTo.messageType === "text"
                                 ? (replyingTo.text && replyingTo.text.length > 80 ? `${replyingTo.text.slice(0, 80)}…` : replyingTo.text)
                                 : `[${replyingTo.messageType === "voice" ? "Voice message" : replyingTo.messageType === "image" ? "Photo" : replyingTo.messageType}]`}
@@ -309,7 +320,7 @@ const MessageInput = ({
                         name="txt_compose_area"
                         id="txt_compose_area"
                         autoComplete="off"
-                        autoCorrect="off"
+                        autoCorrect="on"
                         autoCapitalize="sentences"
                         spellCheck={true}
                         data-lpignore="true"
@@ -322,18 +333,26 @@ const MessageInput = ({
                         placeholder="Type a message..."
                         value={text}
                         onFocus={onFocus}
+                        onClick={onFocus}
                         onChange={(e) => {
-                            setText(e.target.value.replace(/\n/g, ""));
+                            setText(e.target.value);
                             onTyping();
+                            // Auto-grow height cleanly up to max-h-28
+                            e.target.style.height = "auto";
+                            e.target.style.height = `${Math.min(e.target.scrollHeight, 112)}px`;
                         }}
                         onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
+                                // Prevent premature submit if selecting mobile predictive text / IME composition
+                                if (e.nativeEvent.isComposing) {
+                                    return;
+                                }
                                 e.preventDefault();
                                 submit(e as unknown as FormEvent);
                             }
                         }}
                         disabled={disabled}
-                        className="flex-1 bg-transparent px-2 text-[14px] leading-9 h-9 text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50 resize-none overflow-hidden whitespace-nowrap scrollbar-none"
+                        className="flex-1 bg-transparent px-2 text-[16px] sm:text-[14px] leading-snug py-2 min-h-[36px] max-h-28 text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50 resize-none overflow-y-auto break-words [word-break:normal] scrollbar-thin"
                     />
                 )}
 
@@ -350,9 +369,34 @@ const MessageInput = ({
                         type="submit"
                         size="icon"
                         disabled={!text.trim() && !file}
-                        onMouseDown={(e) => {
-                            // Keep focus in input to prevent keyboard from closing
+                        onPointerDown={(e) => {
+                            // Keep focus in input to prevent keyboard from closing on desktop & modern touch
                             e.preventDefault();
+                            inputRef.current?.focus();
+                        }}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            inputRef.current?.focus();
+                        }}
+                        onTouchStart={(e) => {
+                            // Prevent mobile Safari & Android Chrome from blurring textarea when Send is touched
+                            e.preventDefault();
+                            inputRef.current?.focus();
+                        }}
+                        onTouchEnd={(e) => {
+                            // Trigger send on touch release without letting keyboard close
+                            e.preventDefault();
+                            if (inputRef.current) {
+                                inputRef.current.focus();
+                            }
+                            if (text.trim() || file) {
+                                submit(e as unknown as FormEvent);
+                            }
+                        }}
+                        onClick={() => {
+                            if (inputRef.current) {
+                                inputRef.current.focus();
+                            }
                         }}
                         aria-label="Send message"
                         className={cn(

@@ -273,7 +273,7 @@ const MessageBubble = ({
                                     isMine ? "bg-white/10 border-white/40 text-white" : "bg-black/5 dark:bg-white/5 border-primary text-foreground"
                                 )}
                             >
-                                <span className="block max-w-full truncate break-all italic">
+                                <span className="block max-w-full truncate italic">
                                     {message.replyTo.messageType === "text"
                                         ? (message.replyTo.text && message.replyTo.text.length > 70
                                             ? `${message.replyTo.text.slice(0, 70)}…`
@@ -318,7 +318,7 @@ const MessageBubble = ({
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="wrap-break-words break-all whitespace-pre-wrap max-w-full min-w-0">
+                                    <div className="break-words [word-break:normal] [overflow-wrap:anywhere] whitespace-pre-wrap max-w-full min-w-0">
                                         {renderTextWithLinks(message.text!)}
                                         {message.isEdited && (
                                             <span

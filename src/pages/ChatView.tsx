@@ -84,6 +84,7 @@ const ChatView = () => {
     const isNearBottomRef = useRef<boolean>(true);
     const isInitialLoadRef = useRef<boolean>(true);
     const lastMessageIdRef = useRef<string | null>(null);
+    const focusTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
     // Initial data fetch
     const fetchData = async () => {
@@ -255,6 +256,11 @@ const ChatView = () => {
             if (containerRef.current) {
                 if (instant) {
                     containerRef.current.scrollTop = containerRef.current.scrollHeight;
+                    requestAnimationFrame(() => {
+                        if (containerRef.current) {
+                            containerRef.current.scrollTop = containerRef.current.scrollHeight;
+                        }
+                    });
                 } else {
                     containerRef.current.scrollTo({
                         top: containerRef.current.scrollHeight,
@@ -269,21 +275,27 @@ const ChatView = () => {
         }
     };
 
-    // Auto-scroll when keyboard opens or viewport shrinks on mobile
+    // Auto-scroll when keyboard opens on mobile
     useEffect(() => {
         let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
         const handleViewportResize = () => {
             if (resizeTimer) clearTimeout(resizeTimer);
             resizeTimer = setTimeout(() => {
-                if (isNearBottomRef.current) {
+                const activeTag = document.activeElement?.tagName;
+                const isInputActive = activeTag === "TEXTAREA" || activeTag === "INPUT";
+
+                // When keyboard appears or viewport resizes, keep chat scrolled down to the latest message
+                // if the input is focused or user was already viewing the bottom
+                if (isNearBottomRef.current || isInputActive) {
                     scrollToBottom(true);
                 }
-            }, 100);
+            }, 60);
         };
 
         if (window.visualViewport) {
             window.visualViewport.addEventListener("resize", handleViewportResize);
+            window.visualViewport.addEventListener("scroll", handleViewportResize);
         }
         window.addEventListener("resize", handleViewportResize);
 
@@ -291,19 +303,40 @@ const ChatView = () => {
             if (resizeTimer) clearTimeout(resizeTimer);
             if (window.visualViewport) {
                 window.visualViewport.removeEventListener("resize", handleViewportResize);
+                window.visualViewport.removeEventListener("scroll", handleViewportResize);
             }
             window.removeEventListener("resize", handleViewportResize);
+            focusTimersRef.current.forEach(clearTimeout);
         };
     }, []);
 
-    // When user focuses input on mobile, record bottom visibility state cleanly
+    // When user triggers/focuses input on mobile, automatically scroll down to latest message
     const handleInputFocus = () => {
         isNearBottomRef.current = true;
+        setShowNewMessagePill(false);
+
+        // Immediate snap to bottom
+        scrollToBottom(true);
+
+        // Clear any previous focus scroll timers
+        focusTimersRef.current.forEach(clearTimeout);
+        focusTimersRef.current = [];
+
+        // Staggered scrolls while mobile soft keyboard finishes opening animation (250-400ms)
+        [60, 150, 280, 420].forEach((delay) => {
+            const timer = setTimeout(() => {
+                if (containerRef.current) {
+                    scrollToBottom(true);
+                }
+            }, delay);
+            focusTimersRef.current.push(timer);
+        });
     };
 
-    // Auto-scroll if typing indicator appears while at bottom
+    // Auto-scroll if typing indicator appears while at bottom, but only if user is not actively typing
     useEffect(() => {
-        if (isTyping && isNearBottomRef.current) {
+        const activeTag = document.activeElement?.tagName;
+        if (isTyping && isNearBottomRef.current && activeTag !== "TEXTAREA" && activeTag !== "INPUT") {
             scrollToBottom(true);
         }
     }, [isTyping]);

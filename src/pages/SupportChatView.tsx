@@ -123,14 +123,14 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                                     isMe ? "bg-white/10 border-white/40 text-white" : "bg-black/5 dark:bg-white/5 border-primary text-foreground"
                                 )}
                             >
-                                <span className="block max-w-full truncate break-all italic">
+                                <span className="block max-w-full truncate italic">
                                     {replySnippet}
                                 </span>
                             </div>
                         )}
 
                         {/* Message Body */}
-                        <div className="break-words break-all whitespace-pre-wrap max-w-full min-w-0">
+                        <div className="break-words [word-break:normal] [overflow-wrap:anywhere] whitespace-pre-wrap max-w-full min-w-0">
                             {renderTextWithLinks(actualBody)}
                         </div>
 
@@ -481,6 +481,12 @@ export default function SupportChatView() {
                         replyingTo={replyingTo}
                         onCancelReply={() => setReplyingTo(null)}
                         onSend={(text) => handleSend(text)}
+                        onFocus={() => {
+                            scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+                            setTimeout(() => {
+                                scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+                            }, 300);
+                        }}
                         onTyping={() => {}}
                         onStopTyping={() => {}}
                         disabled={sending}

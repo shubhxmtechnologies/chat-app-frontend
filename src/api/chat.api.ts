@@ -32,10 +32,12 @@ export const createOrGetChat = async (
 
 let cachedChats: ChatType[] | null = null;
 let chatsPromise: Promise<ChatType[]> | null = null;
+let cachedUserId: string | null = null;
 
 export const clearChatsCache = () => {
     cachedChats = null;
     chatsPromise = null;
+    cachedUserId = null;
 };
 
 export const updateCachedChat = (chatId: string, updates: Partial<ChatType> | ((prev: ChatType) => ChatType)) => {
@@ -58,13 +60,21 @@ export const updateCachedChat = (chatId: string, updates: Partial<ChatType> | ((
     }
 };
 
-export const getUserChats = async (forceRefetch = false): Promise<ChatType[]> => {
+export const getUserChats = async (forceRefetch = false, userId?: string): Promise<ChatType[]> => {
+    // If a different user is requesting chats, invalidate previous cache immediately
+    if (userId && cachedUserId && cachedUserId !== userId) {
+        clearChatsCache();
+    }
+
     if (!forceRefetch && cachedChats) return cachedChats;
     if (!forceRefetch && chatsPromise) return chatsPromise;
 
     try {
         chatsPromise = axiosClient.get("/chats").then((response) => {
             cachedChats = response.data.chats;
+            if (userId) {
+                cachedUserId = userId;
+            }
             return cachedChats as ChatType[];
         });
         const result = await chatsPromise;
