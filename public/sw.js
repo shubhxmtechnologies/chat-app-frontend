@@ -1,4 +1,4 @@
-const CACHE_NAME = "pinsta-pwa-v1";
+const CACHE_NAME = "pinsta-pwa-v2";
 const PRECACHE_ASSETS = [
     "/",
     "/index.html",
@@ -108,7 +108,7 @@ self.addEventListener("push", (event) => {
                         client.url.includes(`/chats/${data.chatId}`);
                 });
 
-                if (isChatActivelyOpen) {
+                if (!data.isTest && isChatActivelyOpen) {
                     return;
                 }
 

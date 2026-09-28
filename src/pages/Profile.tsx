@@ -18,6 +18,13 @@ import {
     UserCheck,
     Loader2,
     Bell,
+    BellOff,
+    Volume2,
+    VolumeX,
+    AlertCircle,
+    AlertTriangle,
+    Send,
+    RefreshCw,
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -29,6 +36,7 @@ import {
     updateBio,
     getBlockedUsers,
     unblockUser,
+    toggleGlobalMute,
     type SearchUser,
 } from "@/api/user.api";
 import {
@@ -40,7 +48,12 @@ import {
 } from "@/utils/validators";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { subscribeUserToPush } from "@/utils/push.util";
+import { 
+    getPushSubscriptionDetails, 
+    subscribeUserToPush, 
+    unsubscribeUserFromPush, 
+    triggerTestNotification,
+} from "@/utils/push.util";
 import { envConfig } from "@/config/env";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -68,41 +81,134 @@ const Profile = () => {
     const [avatarError, setAvatarError] = useState("");
     const [avatarSuccess, setAvatarSuccess] = useState("");
 
-    // Push Notifications state
-    const [pushStatus, setPushStatus] = useState<"idle" | "loading" | "enabled" | "error" | "unsupported">("idle");
-    const [pushError, setPushError] = useState("");
+    // Push Notifications & Master Alert Controls
+    const [pushDetails, setPushDetails] = useState<{
+        supported: boolean;
+        permission: NotificationPermission | "unsupported";
+        isSubscribed: boolean;
+        isBrave: boolean;
+    }>({
+        supported: true,
+        permission: "default",
+        isSubscribed: false,
+        isBrave: false,
+    });
+    const [pushLoading, setPushLoading] = useState(false);
+    const [pushActionMsg, setPushActionMsg] = useState("");
+    const [pushErrorMsg, setPushErrorMsg] = useState("");
+    const [isBraveGcmIssue, setIsBraveGcmIssue] = useState(false);
+    const [testPushLoading, setTestPushLoading] = useState(false);
+    const [testPushSuccess, setTestPushSuccess] = useState("");
+    const [copiedBraveUrl, setCopiedBraveUrl] = useState(false);
 
-    const isPushSupported = () => 
-        "Notification" in window && 
-        "serviceWorker" in navigator && 
-        "PushManager" in window;
+    // Global mute / allow notification alerts state
+    const [globalMute, setGlobalMute] = useState<boolean>(!!user?.globalMute);
+    const [togglingMute, setTogglingMute] = useState(false);
+
+    const refreshPushDetails = async () => {
+        try {
+            const details = await getPushSubscriptionDetails();
+            setPushDetails({
+                supported: details.supported,
+                permission: details.permission,
+                isSubscribed: details.isSubscribed,
+                isBrave: details.isBrave,
+            });
+            if (details.isBrave && !details.isSubscribed && details.permission === "granted") {
+                // In Brave, permission is granted but push subscription isn't active
+                setIsBraveGcmIssue(true);
+            }
+        } catch (e) {
+            console.warn("Failed to check push details:", e);
+        }
+    };
 
     useEffect(() => {
-        if (!isPushSupported()) {
-            setPushStatus("unsupported");
-            return;
-        }
-
-        if (Notification.permission === "granted") {
-            setPushStatus("enabled");
-        }
+        void refreshPushDetails();
     }, []);
 
-    const handleSubscribeToPush = async () => {
-        if (!isPushSupported()) return;
-        setPushStatus("loading");
-        setPushError("");
+    useEffect(() => {
+        if (user) {
+            setGlobalMute(!!user.globalMute);
+        }
+    }, [user]);
+
+    const handleToggleGlobalMute = async () => {
         try {
-            const success = await subscribeUserToPush(envConfig.VAPID_PUBLIC_KEY);
-            if (success) {
-                setPushStatus("enabled");
+            setTogglingMute(true);
+            const newMuteState = await toggleGlobalMute();
+            setGlobalMute(newMuteState);
+            updateUser({ globalMute: newMuteState });
+        } catch (err: any) {
+            console.error("Failed to toggle global notification mute:", err);
+        } finally {
+            setTogglingMute(false);
+        }
+    };
+
+    const handleTogglePushSubscription = async () => {
+        setPushLoading(true);
+        setPushErrorMsg("");
+        setPushActionMsg("");
+        setIsBraveGcmIssue(false);
+        try {
+            if (pushDetails.isSubscribed) {
+                // Disable / Unsubscribe
+                const res = await unsubscribeUserFromPush();
+                if (res.success) {
+                    setPushActionMsg("Offline notifications disabled on this device.");
+                    await refreshPushDetails();
+                } else {
+                    setPushErrorMsg(res.error || "Failed to disable notifications.");
+                }
             } else {
-                setPushStatus("error");
-                setPushError("Failed to enable notifications. Please check browser permissions.");
+                // Enable / Subscribe
+                const res = await subscribeUserToPush(envConfig.VAPID_PUBLIC_KEY);
+                if (res.success) {
+                    setPushActionMsg("Real-time notifications enabled successfully! 🎉");
+                    await refreshPushDetails();
+                } else {
+                    setPushErrorMsg(res.error || "Failed to enable notifications.");
+                    if (res.code === "BRAVE_GCM_DISABLED" || res.isBrave) {
+                        setIsBraveGcmIssue(true);
+                    }
+                    await refreshPushDetails();
+                }
             }
-        } catch (err) {
-            setPushStatus("error");
-            setPushError("An error occurred while enabling notifications.");
+        } catch (e: any) {
+            setPushErrorMsg(e?.message || "An unexpected error occurred while toggling notifications.");
+        } finally {
+            setPushLoading(false);
+            setTimeout(() => setPushActionMsg(""), 5000);
+        }
+    };
+
+    const handleSendTestNotification = async () => {
+        setTestPushLoading(true);
+        setTestPushSuccess("");
+        setPushErrorMsg("");
+        try {
+            const res = await triggerTestNotification();
+            if (res.success) {
+                setTestPushSuccess("Test notification delivered in real time! Check your notification center.");
+                setTimeout(() => setTestPushSuccess(""), 5000);
+            } else {
+                setPushErrorMsg(res.error || "Failed to send test notification.");
+            }
+        } catch (e: any) {
+            setPushErrorMsg(e?.message || "Failed to send test notification.");
+        } finally {
+            setTestPushLoading(false);
+        }
+    };
+
+    const handleCopyBraveUrl = async () => {
+        try {
+            await navigator.clipboard.writeText("brave://settings/privacy");
+            setCopiedBraveUrl(true);
+            setTimeout(() => setCopiedBraveUrl(false), 2500);
+        } catch (e) {
+            console.warn("Could not copy:", e);
         }
     };
 
@@ -424,7 +530,7 @@ const Profile = () => {
                             <ArrowLeft className="size-4" />
                         </Button>
                         <div>
-                            <h1 className="text-[17px] font-bold leading-none tracking-tight text-foreground">
+                            <h1 className="text-base font-semibold leading-none tracking-tight text-foreground">
                                 Profile Settings
                             </h1>
                             <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
@@ -596,9 +702,9 @@ const Profile = () => {
                         type="button"
                         onClick={() => setActiveTab("general")}
                         className={cn(
-                            "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                            "flex-1 py-2 rounded-xl text-xs font-semibold tracking-tight transition-all",
                             activeTab === "general"
-                                ? "bg-gradient-chat-sender text-white shadow-xs"
+                                ? "bg-primary text-primary-foreground shadow-xs"
                                 : "text-muted-foreground hover:text-foreground"
                         )}
                     >
@@ -608,21 +714,21 @@ const Profile = () => {
                         type="button"
                         onClick={() => setActiveTab("security")}
                         className={cn(
-                            "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                            "flex-1 py-2 rounded-xl text-xs font-semibold tracking-tight transition-all",
                             activeTab === "security"
-                                ? "bg-gradient-chat-sender text-white shadow-xs"
+                                ? "bg-primary text-primary-foreground shadow-xs"
                                 : "text-muted-foreground hover:text-foreground"
                         )}
                     >
-                        Security & Email
+                        Security & Notifications
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab("blocked")}
                         className={cn(
-                            "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                            "flex-1 py-2 rounded-xl text-xs font-semibold tracking-tight transition-all",
                             activeTab === "blocked"
-                                ? "bg-gradient-chat-sender text-white shadow-xs"
+                                ? "bg-primary text-primary-foreground shadow-xs"
                                 : "text-muted-foreground hover:text-foreground"
                         )}
                     >
@@ -637,7 +743,7 @@ const Profile = () => {
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-base font-bold text-foreground">
+                                    <h3 className="text-base font-semibold tracking-tight text-foreground">
                                         Display Name
                                     </h3>
                                     <p className="text-xs text-muted-foreground">
@@ -730,7 +836,7 @@ const Profile = () => {
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-base font-bold text-foreground">
+                                    <h3 className="text-base font-semibold tracking-tight text-foreground">
                                         About / Bio
                                     </h3>
                                     <p className="text-xs text-muted-foreground">
@@ -783,7 +889,7 @@ const Profile = () => {
                                             type="submit"
                                             size="sm"
                                             disabled={savingBio || !bioDirty}
-                                            className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
+                                            className="h-9 px-4 rounded-xl font-medium shadow-xs disabled:opacity-40"
                                         >
                                             {savingBio ? "Saving…" : "Save Bio"}
                                         </Button>
@@ -795,7 +901,7 @@ const Profile = () => {
                         {/* Appearance & Theme Card */}
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div>
-                                <h3 className="text-base font-bold text-foreground">
+                                <h3 className="text-base font-semibold tracking-tight text-foreground">
                                     App Appearance
                                 </h3>
                                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -811,7 +917,7 @@ const Profile = () => {
                                 <Shield className="size-4" />
                             </div>
                             <div className="space-y-1">
-                                <h4 className="text-xs font-bold text-foreground">
+                                <h4 className="text-xs font-semibold tracking-tight text-foreground">
                                     Username is permanent (@{user.username})
                                 </h4>
                                 <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -825,43 +931,242 @@ const Profile = () => {
                 {/* TAB 2: SECURITY & EMAIL */}
                 {activeTab === "security" && (
                     <div className="space-y-6">
-                        {/* Push Notifications Card */}
-                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <h3 className="text-base font-bold text-foreground">
-                                    Offline Notifications
-                                </h3>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Enable push notifications to receive messages even when the app is closed.
-                                </p>
-                                {pushError && <p className="text-xs text-destructive mt-1">{pushError}</p>}
-                                {pushStatus === "unsupported" && (
-                                    <p className="text-xs text-destructive mt-1">Your browser does not support Web Push.</p>
-                                )}
+                        {/* 1. Master Notification Toggle (Allow or Mute Alerts) */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-base font-semibold tracking-tight text-foreground">
+                                            Message Notifications & Alerts
+                                        </h3>
+                                        <span className={cn(
+                                            "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold",
+                                            !globalMute
+                                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                        )}>
+                                            {!globalMute ? (
+                                                <>
+                                                    <Volume2 className="size-3" />
+                                                    <span>Allowed</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <VolumeX className="size-3" />
+                                                    <span>Muted</span>
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Trigger whether you want to receive message alerts, incoming sounds, and push notifications.
+                                    </p>
+                                </div>
+
+                                <Button
+                                    type="button"
+                                    variant={!globalMute ? "outline" : "default"}
+                                    onClick={handleToggleGlobalMute}
+                                    disabled={togglingMute}
+                                    className="h-9 px-4 rounded-xl font-medium gap-2 shrink-0"
+                                >
+                                    {togglingMute ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                    ) : !globalMute ? (
+                                        <>
+                                            <BellOff className="size-4 text-muted-foreground" />
+                                            <span>Mute Notifications</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Bell className="size-4" />
+                                            <span>Allow Notifications</span>
+                                        </>
+                                    )}
+                                </Button>
                             </div>
-                            <Button
-                                type="button"
-                                variant={pushStatus === "enabled" ? "secondary" : "outline"}
-                                onClick={handleSubscribeToPush}
-                                disabled={pushStatus === "loading" || pushStatus === "enabled" || pushStatus === "unsupported"}
-                                className="h-9 px-4 rounded-xl font-medium gap-2 shrink-0"
-                            >
-                                {pushStatus === "loading" ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                ) : pushStatus === "enabled" ? (
-                                    <CheckCircle2 className="size-4 text-emerald-500" />
-                                ) : (
-                                    <Bell className="size-4" />
-                                )}
-                                <span>{pushStatus === "enabled" ? "Enabled" : "Enable"}</span>
-                            </Button>
+                        </div>
+
+                        {/* 2. Real-Time Web Push & Device Notifications Card */}
+                        <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h3 className="text-base font-semibold tracking-tight text-foreground">
+                                            Offline Push Notifications
+                                        </h3>
+                                        {/* Status Badge */}
+                                        <span className={cn(
+                                            "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold",
+                                            pushDetails.isSubscribed
+                                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                                : "bg-secondary text-muted-foreground border border-border"
+                                        )}>
+                                            {pushDetails.isSubscribed ? (
+                                                <>
+                                                    <CheckCircle2 className="size-3 text-emerald-500" />
+                                                    <span>Active (0ms Real-Time)</span>
+                                                </>
+                                            ) : (
+                                                <span>Inactive</span>
+                                            )}
+                                        </span>
+
+                                        {/* Browser Indicator */}
+                                        {pushDetails.isBrave && (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
+                                                🦁 Brave Browser
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Receive real-time push alerts on your lock screen and desktop immediately when someone sends you a message.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                    {pushDetails.isSubscribed && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleSendTestNotification}
+                                            disabled={testPushLoading}
+                                            className="h-9 px-3 rounded-xl text-xs font-semibold gap-1.5"
+                                            title="Send a real-time test notification to this device"
+                                        >
+                                            {testPushLoading ? (
+                                                <Loader2 className="size-3.5 animate-spin" />
+                                            ) : (
+                                                <Send className="size-3.5 text-primary" />
+                                            )}
+                                            <span>Send Test Push</span>
+                                        </Button>
+                                    )}
+
+                                    <Button
+                                        type="button"
+                                        variant={pushDetails.isSubscribed ? "secondary" : "default"}
+                                        onClick={handleTogglePushSubscription}
+                                        disabled={pushLoading || !pushDetails.supported}
+                                        className={cn(
+                                            "h-9 px-4 rounded-xl font-semibold gap-2",
+                                            !pushDetails.isSubscribed && "bg-gradient-chat-sender text-white shadow-xs"
+                                        )}
+                                    >
+                                        {pushLoading ? (
+                                            <Loader2 className="size-4 animate-spin" />
+                                        ) : pushDetails.isSubscribed ? (
+                                            <>
+                                                <BellOff className="size-4 text-muted-foreground" />
+                                                <span>Disable Push</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Bell className="size-4" />
+                                                <span>Enable Push</span>
+                                            </>
+                                        )}
+                                    </Button>
+
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={refreshPushDetails}
+                                        title="Re-check browser notification status"
+                                        className="size-9 rounded-xl text-muted-foreground hover:text-foreground"
+                                    >
+                                        <RefreshCw className="size-3.5" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Status Feedbacks */}
+                            {pushActionMsg && (
+                                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
+                                    <CheckCircle2 className="size-4 shrink-0" />
+                                    <span>{pushActionMsg}</span>
+                                </div>
+                            )}
+
+                            {testPushSuccess && (
+                                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
+                                    <CheckCircle2 className="size-4 shrink-0" />
+                                    <span>{testPushSuccess}</span>
+                                </div>
+                            )}
+
+                            {pushErrorMsg && (
+                                <div className="p-3 rounded-2xl bg-destructive/10 border border-destructive/20 text-xs text-destructive font-medium flex items-start gap-2">
+                                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                                    <div className="space-y-1">
+                                        <p>{pushErrorMsg}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Brave Browser Specific Resolution Card */}
+                            {(pushDetails.isBrave || isBraveGcmIssue) && (
+                                <div className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 text-xs text-foreground space-y-2.5">
+                                    <div className="flex items-center gap-2 font-semibold tracking-tight text-orange-600 dark:text-orange-400">
+                                        <AlertTriangle className="size-4 shrink-0" />
+                                        <span>Brave Browser Notification Notice</span>
+                                    </div>
+                                    <p className="text-muted-foreground leading-relaxed">
+                                        Brave disables Google Push Messaging (FCM) by default for privacy. Even if site notifications are allowed, Brave requires enabling Google services in its settings to receive push notifications:
+                                    </p>
+                                    <div className="p-2.5 rounded-xl bg-card border border-border/80 flex items-center justify-between gap-2">
+                                        <code className="text-[11px] font-mono font-semibold text-foreground select-all">
+                                            brave://settings/privacy
+                                        </code>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={handleCopyBraveUrl}
+                                            className="h-7 px-2.5 text-[11px] rounded-lg gap-1"
+                                        >
+                                            {copiedBraveUrl ? (
+                                                <>
+                                                    <Check className="size-3 text-emerald-500" />
+                                                    <span>Copied</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy className="size-3" />
+                                                    <span>Copy URL</span>
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <ol className="list-decimal list-inside text-muted-foreground space-y-1 pl-1">
+                                        <li>Open a new tab and paste <strong className="text-foreground">brave://settings/privacy</strong></li>
+                                        <li>Turn ON <strong className="text-foreground">"Use Google services for push messaging"</strong></li>
+                                        <li>Restart Brave and click <strong className="text-foreground">Enable Push</strong> above</li>
+                                    </ol>
+                                </div>
+                            )}
+
+                            {/* Browser Permission Denied Alert */}
+                            {pushDetails.permission === "denied" && (
+                                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2.5">
+                                    <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-semibold mb-0.5">Notifications are blocked in your browser</p>
+                                        <p className="text-muted-foreground leading-relaxed">
+                                            To allow notifications, click the tune/padlock icon on the left side of the address bar, change <strong>Notifications</strong> to <strong>Allow</strong>, then reload this page.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Email Address Update */}
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-base font-bold text-foreground">
+                                    <h3 className="text-base font-semibold tracking-tight text-foreground">
                                         Email Address
                                     </h3>
                                     <p className="text-xs text-muted-foreground">
@@ -921,7 +1226,7 @@ const Profile = () => {
                                             type="submit"
                                             size="sm"
                                             disabled={savingEmail || !emailDirty}
-                                            className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
+                                            className="h-9 px-4 rounded-xl font-medium shadow-xs disabled:opacity-40"
                                         >
                                             {savingEmail ? "Saving…" : "Update Email"}
                                         </Button>
@@ -933,7 +1238,7 @@ const Profile = () => {
                         {/* Password Change */}
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                             <div>
-                                <h3 className="text-base font-bold text-foreground">
+                                <h3 className="text-base font-semibold tracking-tight text-foreground">
                                     Change Password
                                 </h3>
                                 <p className="text-xs text-muted-foreground">
@@ -1053,7 +1358,7 @@ const Profile = () => {
                                             type="submit"
                                             size="sm"
                                             disabled={savingPassword || !passwordFilled}
-                                            className="h-9 px-4 rounded-xl font-semibold bg-gradient-chat-sender text-white shadow-xs disabled:opacity-40"
+                                            className="h-9 px-4 rounded-xl font-medium shadow-xs disabled:opacity-40"
                                         >
                                             {savingPassword ? "Updating…" : "Change Password"}
                                         </Button>
@@ -1069,7 +1374,7 @@ const Profile = () => {
                     <>
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                             <div>
-                                <h3 className="text-base font-bold text-foreground">
+                                <h3 className="text-base font-semibold tracking-tight text-foreground">
                                     Blocked Users
                                 </h3>
                                 <p className="text-xs text-muted-foreground">
@@ -1114,7 +1419,7 @@ const Profile = () => {
                                                     className="size-10 rounded-full object-cover border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all shrink-0"
                                                 />
                                                 <div className="min-w-0">
-                                                    <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                                                    <h4 className="text-sm font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors truncate">
                                                         {bUser.name?.firstName
                                                             ? `${bUser.name.firstName} ${bUser.name.lastName || ""}`.trim()
                                                             : `@${bUser.username}`}
@@ -1189,7 +1494,7 @@ const Profile = () => {
                                             </div>
 
                                             <div>
-                                                <h3 className="text-lg font-bold text-foreground">
+                                                <h3 className="text-base font-semibold tracking-tight text-foreground">
                                                     {viewingBlockedUser.name?.firstName
                                                         ? `${viewingBlockedUser.name.firstName} ${viewingBlockedUser.name.lastName || ""}`.trim()
                                                         : `@${viewingBlockedUser.username}`}

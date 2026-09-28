@@ -174,9 +174,9 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
     };
 
     return (
-        <div className="flex items-center gap-2 p-1.5 w-full bg-background rounded-2xl shadow-sm border border-border/50">
+        <div className="flex items-center gap-2 p-1.5 w-full bg-card/90 backdrop-blur-md rounded-2xl shadow-xs border border-border/80">
             {micError && (
-                <div className="text-destructive text-xs mb-2 px-2 py-1 bg-destructive/10 rounded-md w-full">
+                <div className="text-destructive text-xs mb-2 px-2 py-1 bg-destructive/10 rounded-lg w-full">
                     {micError}
                 </div>
             )}
@@ -195,7 +195,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                                     variant="destructive"
                                     size="icon"
                                     onClick={stopRecording}
-                                    className="size-8 rounded-full shrink-0 shadow-sm animate-pulse"
+                                    className="size-8 rounded-xl shrink-0 shadow-xs animate-pulse"
                                 >
                                     <Square className="size-3.5 fill-current" />
                                 </Button>
@@ -209,10 +209,10 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                             >
                                 <Button
                                     type="button"
-                                    variant="default"
+                                    variant="destructive"
                                     size="icon"
                                     onClick={startRecording}
-                                    className="size-8 rounded-full shrink-0 shadow-sm bg-pink-500 hover:bg-pink-600 text-white"
+                                    className="size-8 rounded-xl shrink-0 shadow-xs"
                                 >
                                     <Circle className="size-3.5 fill-current" />
                                 </Button>
@@ -228,7 +228,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                                 className="size-2 bg-destructive rounded-full animate-ping"
                             />
                         )}
-                        <span className={cn("text-sm font-semibold tabular-nums tracking-wide transition-colors duration-300", isRecording ? "text-destructive" : "text-muted-foreground")}>
+                        <span className={cn("text-sm font-semibold tabular-nums tracking-tight transition-colors duration-300", isRecording ? "text-destructive" : "text-muted-foreground")}>
                             {formatTime(recordingTime)}
                         </span>
                         <div className="flex-1" />
@@ -239,7 +239,7 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                         variant="ghost"
                         size="icon"
                         onClick={handleDiscard}
-                        className="size-8 rounded-full text-muted-foreground hover:text-destructive shrink-0"
+                        className="size-8 rounded-xl text-muted-foreground hover:text-destructive shrink-0"
                         title="Cancel"
                     >
                         <X className="size-4" />
@@ -256,23 +256,23 @@ const VoiceRecorder = ({ onSendVoice, onCancel }: Props) => {
                         variant="ghost"
                         size="icon"
                         onClick={handleDiscard}
-                        className="size-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
+                        className="size-8 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 transition-colors"
                         title="Discard"
                     >
                         <Trash2 className="size-4" />
                     </Button>
                     
-                    <div className="flex-1 bg-secondary/40 rounded-[20px] px-3 py-1 flex items-center min-h-10 border border-border/40">
+                    <div className="flex-1 bg-muted/60 rounded-xl px-3 py-1 flex items-center min-h-10 border border-border/50">
                         <VoicePlayer src={audioUrl} isMine={false} />
                     </div>
                     
                     <Button
                         type="button"
                         onClick={handleSend}
-                        className="h-8 px-3 rounded-full bg-gradient-chat-sender hover:opacity-90 text-white text-xs font-semibold shrink-0 gap-1.5 transition-all shadow-md active:scale-95"
+                        className="h-9 px-3.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium shrink-0 gap-1.5 transition-all shadow-xs active:scale-95"
                     >
                         Send
-                        <Send className="size-3" />
+                        <Send className="size-3.5" />
                     </Button>
                 </motion.div>
             )}

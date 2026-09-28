@@ -20,6 +20,7 @@ import type { Message } from "@/types/message.types";
 import { editMessage, deleteMessageForMe, deleteMessageForEveryone } from "@/api/message.api";
 import { cn } from "@/lib/utils";
 import { renderTextWithLinks } from "@/utils/text.util";
+import { downloadMediaFile } from "@/utils/download.util";
 import VoicePlayer from "./VoicePlayer";
 
 interface Props {
@@ -49,32 +50,19 @@ const MessageBubble = ({
     const [showInfo, setShowInfo] = useState(false);
     const [showImageModal, setShowImageModal] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleDownloadImage = async (e?: React.MouseEvent) => {
+    const handleDownloadMedia = async (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
         if (!message.mediaUrl) return;
         try {
             setIsDownloading(true);
-            const response = await fetch(message.mediaUrl);
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = blobUrl;
-            link.download = `pinsta-image-${message._id.slice(-6)}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-        } catch {
-            const link = document.createElement("a");
-            link.href = message.mediaUrl;
-            link.target = "_blank";
-            link.download = `pinsta-image-${message._id.slice(-6)}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const ext = message.messageType === "voice" ? "webm" : "jpg";
+            const filename = `pinsta-${message.messageType || "image"}-${message._id.slice(-6)}.${ext}`;
+            await downloadMediaFile(message.mediaUrl, filename, message._id);
+        } catch (error) {
+            console.error("Failed to download media:", error);
         } finally {
             setIsDownloading(false);
         }
@@ -132,8 +120,10 @@ const MessageBubble = ({
         }
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter") {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            if (e.nativeEvent.isComposing) return;
+            e.preventDefault();
             void handleSave();
         } else if (e.key === "Escape") {
             setIsEditing(false);
@@ -247,10 +237,10 @@ const MessageBubble = ({
                             }
                         }}
                         className={cn(
-                            "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm select-none md:select-text max-w-full min-w-0 overflow-hidden",
+                            "relative px-4 py-2.5 text-[14px] leading-relaxed transition-all duration-200 select-none md:select-text max-w-full min-w-0 overflow-hidden",
                             isMine
-                                ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-lg shadow-indigo-500/10 font-normal"
-                                : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-lg shadow-xs"
+                                ? "bg-primary text-primary-foreground rounded-2xl rounded-br-xs shadow-xs font-normal"
+                                : "bg-muted text-foreground border border-border/40 rounded-2xl rounded-bl-xs shadow-xs"
                         )}
                     >
                         {/* Reply Snippet */}
@@ -261,16 +251,15 @@ const MessageBubble = ({
                                     const bubbleEl = document.getElementById(`bubble-${message.replyTo?._id}`);
                                     if (msgEl && bubbleEl) {
                                         msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        // Different highlight effect: brightness and scale
-                                        bubbleEl.classList.add('brightness-125', 'scale-[1.02]', 'ring-2', 'ring-primary/50', 'ring-offset-2', 'ring-offset-background');
+                                        bubbleEl.classList.add('brightness-110', 'scale-[1.01]', 'ring-2', 'ring-primary/50', 'ring-offset-2', 'ring-offset-background');
                                         setTimeout(() => {
-                                            bubbleEl.classList.remove('brightness-125', 'scale-[1.02]', 'ring-2', 'ring-primary/50', 'ring-offset-2', 'ring-offset-background');
+                                            bubbleEl.classList.remove('brightness-110', 'scale-[1.01]', 'ring-2', 'ring-primary/50', 'ring-offset-2', 'ring-offset-background');
                                         }, 1500);
                                     }
                                 }}
                                 className={cn(
-                                    "mb-2 p-2 rounded-lg text-[12px] opacity-80 border-l-2 cursor-pointer hover:opacity-100 transition-opacity max-w-full min-w-0 overflow-hidden",
-                                    isMine ? "bg-white/10 border-white/40 text-white" : "bg-black/5 dark:bg-white/5 border-primary text-foreground"
+                                    "mb-2 p-2 rounded-xl text-xs opacity-90 border-l-2 cursor-pointer hover:opacity-100 transition-opacity max-w-full min-w-0 overflow-hidden",
+                                    isMine ? "bg-primary-foreground/10 border-primary-foreground/40 text-primary-foreground" : "bg-background/60 border-primary text-foreground"
                                 )}
                             >
                                 <span className="block max-w-full truncate italic">
@@ -288,19 +277,40 @@ const MessageBubble = ({
                             <div className="max-w-full min-w-0 overflow-hidden">
                                 {isEditing ? (
                                     <div className="flex items-center gap-1.5 my-0.5">
-                                        <input
+                                        <textarea
                                             ref={inputRef}
+                                            rows={1}
+                                            name="txt_edit_message"
+                                            id={`txt_edit_${message._id}`}
                                             value={editText}
                                             onChange={(e) => setEditText(e.target.value)}
                                             onKeyDown={handleKeyDown}
+                                            autoComplete="off"
+                                            autoCorrect="on"
+                                            autoCapitalize="sentences"
+                                            spellCheck={true}
+                                            data-lpignore="true"
+                                            data-1p-ignore="true"
+                                            data-1password-ignore="true"
+                                            data-form-type="other"
+                                            enterKeyHint="done"
+                                            role="textbox"
                                             disabled={isSaving}
-                                            className="bg-white/20 text-white rounded-lg px-2.5 py-1 text-sm outline-none border border-white/40 focus:ring-2 focus:ring-white/50 min-w-45"
+                                            className={cn(
+                                                "rounded-xl px-2.5 py-1 text-[16px] sm:text-sm outline-none border min-w-45 resize-none leading-snug overflow-hidden max-h-24 break-words [word-break:normal] [overflow-wrap:anywhere]",
+                                                isMine
+                                                    ? "bg-primary-foreground/15 text-primary-foreground border-primary-foreground/30 focus:ring-2 focus:ring-primary-foreground/40 placeholder:text-primary-foreground/60"
+                                                    : "bg-background text-foreground border-border focus:ring-2 focus:ring-ring"
+                                            )}
                                         />
                                         <button
                                             type="button"
                                             onClick={handleSave}
                                             disabled={isSaving}
-                                            className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
+                                            className={cn(
+                                                "p-1.5 rounded-lg transition-colors",
+                                                isMine ? "hover:bg-primary-foreground/20 text-primary-foreground" : "hover:bg-muted text-foreground"
+                                            )}
                                             title="Save edit"
                                         >
                                             <SaveIcon className="size-3.5" />
@@ -311,7 +321,10 @@ const MessageBubble = ({
                                                 setIsEditing(false);
                                                 setEditText(message.text || "");
                                             }}
-                                            className="p-1 hover:bg-white/20 rounded-md text-white transition-colors"
+                                            className={cn(
+                                                "p-1.5 rounded-lg transition-colors",
+                                                isMine ? "hover:bg-primary-foreground/20 text-primary-foreground" : "hover:bg-muted text-foreground"
+                                            )}
                                             title="Cancel edit"
                                         >
                                             <X className="size-3.5" />
@@ -324,7 +337,7 @@ const MessageBubble = ({
                                             <span
                                                 className={cn(
                                                     "text-[10px] ml-1.5 opacity-75 font-normal italic",
-                                                    isMine ? "text-white/80" : "text-muted-foreground"
+                                                    isMine ? "text-primary-foreground/80" : "text-muted-foreground"
                                                 )}
                                             >
                                                 (edited)
@@ -360,7 +373,7 @@ const MessageBubble = ({
                             <div
                                 className={cn(
                                     "flex items-center p-2 rounded-2xl min-w-50",
-                                    isMine ? "bg-white/10 shadow-inner" : "bg-secondary/70 border border-border/50"
+                                    isMine ? "bg-primary-foreground/15 shadow-inner" : "bg-card border border-border/50"
                                 )}
                             >
                                 <VoicePlayer src={message.mediaUrl!} isMine={isMine} />
@@ -370,8 +383,8 @@ const MessageBubble = ({
                         {/* Footer Time & Status Receipts */}
                         <div
                             className={cn(
-                                "flex items-center justify-end gap-1 mt-1 text-[10.5px] font-medium leading-none select-none",
-                                isMine ? "text-white/80" : "text-muted-foreground"
+                                "flex items-center justify-end gap-1 mt-1 text-[11px] font-normal leading-none select-none",
+                                isMine ? "text-primary-foreground/75" : "text-muted-foreground"
                             )}
                         >
                             <span>{timeString}</span>
@@ -379,28 +392,19 @@ const MessageBubble = ({
                             {isMine && (
                                 <span className="flex items-center gap-0.5 ml-1">
                                     {message.status === "sending" && (
-                                        <>
-                                            <span className="opacity-70 font-medium">Sending</span>
-                                            <Clock className="size-3 opacity-70 animate-pulse" />
-                                        </>
+                                        <Clock className="size-3 opacity-70 animate-pulse" />
                                     )}
-                                    {(message.status === "sent" || message.status === "delivered" as any) && (
-                                        <>
-                                            <span className="opacity-90 font-medium">Sent</span>
-                                            <Check className="size-3.5 opacity-90 stroke-[2.5]" />
-                                        </>
+                                    {(message.status === "sent" || (message.status as any) === "delivered") && (
+                                        <Check className="size-3.5 opacity-90 stroke-[2.2]" />
                                     )}
                                     {message.status === "seen" && (
-                                        <>
-                                            <span className="text-cyan-200 dark:text-cyan-300 font-medium">Seen</span>
-                                            <CheckCheck className="size-3.5 text-cyan-200 dark:text-cyan-300 stroke-[2.5]" />
-                                        </>
+                                        <CheckCheck className="size-3.5 opacity-100 stroke-[2.2]" />
                                     )}
                                     {message.status === "failed" && (
                                         <button
                                             type="button"
                                             onClick={() => onRetry?.(message)}
-                                            className="text-red-200 hover:text-white transition-colors"
+                                            className="text-primary-foreground hover:opacity-100 transition-opacity"
                                             title="Retry sending"
                                         >
                                             <RotateCw className="size-3" />
@@ -429,7 +433,7 @@ const MessageBubble = ({
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ duration: 0.15 }}
                                     className={cn(
-                                        "z-50 w-52 md:w-48 rounded-xl border border-border bg-card shadow-lg p-1 space-y-0.5",
+                                        "z-50 w-52 md:w-48 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-md shadow-xl p-1.5 space-y-0.5",
                                         "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" // Centered everywhere
                                     )}
                                     onClick={(e) => e.stopPropagation()} // Keep menu open if clicking inside it
@@ -456,6 +460,28 @@ const MessageBubble = ({
                                     >
                                         <Copy className="size-3.5 text-muted-foreground" />
                                         <span>Copy text</span>
+                                    </button>
+                                )}
+
+                                {/* Download Media Option (image or voice) */}
+                                {(message.messageType === "image" || message.messageType === "voice") && message.mediaUrl && (
+                                    <button
+                                        type="button"
+                                        disabled={isDownloading}
+                                        onClick={(e) => {
+                                            handleDownloadMedia(e);
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+                                    >
+                                        <Download className="size-3.5 text-muted-foreground" />
+                                        <span>
+                                            {isDownloading
+                                                ? "Downloading..."
+                                                : message.messageType === "image"
+                                                ? "Download photo"
+                                                : "Download voice note"}
+                                        </span>
                                     </button>
                                 )}
 
@@ -548,20 +574,20 @@ const MessageBubble = ({
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full max-w-xs bg-card border border-border rounded-2xl p-5 shadow-2xl relative"
+                            className="w-full max-w-xs bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl p-5 shadow-xl relative"
                         >
                             <button
                                 type="button"
                                 onClick={() => setShowInfo(false)}
-                                className="absolute top-3 right-3 p-1.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground"
+                                className="absolute top-3.5 right-3.5 size-7 flex items-center justify-center rounded-lg bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 <X className="size-4" />
                             </button>
-                            <h3 className="font-bold text-lg mb-4 text-foreground">Message Info</h3>
+                            <h3 className="font-semibold text-base tracking-tight mb-4 text-foreground">Message Info</h3>
                             <div className="space-y-4">
                                 <div>
-                                    <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Sent</p>
-                                    <p className="text-sm font-medium mt-1">
+                                    <p className="text-[11px] text-muted-foreground uppercase font-medium tracking-wider">Sent</p>
+                                    <p className="text-sm font-normal text-foreground mt-0.5">
                                         {new Date(message.createdAt).toLocaleString(undefined, {
                                             dateStyle: 'medium',
                                             timeStyle: 'short'
@@ -569,8 +595,8 @@ const MessageBubble = ({
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Seen</p>
-                                    <p className="text-sm font-medium mt-1">
+                                    <p className="text-[11px] text-muted-foreground uppercase font-medium tracking-wider">Seen</p>
+                                    <p className="text-sm font-normal text-foreground mt-0.5">
                                         {message.seenAt ? new Date(message.seenAt).toLocaleString(undefined, {
                                             dateStyle: 'medium',
                                             timeStyle: 'short'
@@ -599,7 +625,7 @@ const MessageBubble = ({
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={handleDownloadImage}
+                                    onClick={handleDownloadMedia}
                                     disabled={isDownloading}
                                     className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors backdrop-blur-xs disabled:opacity-50 cursor-pointer"
                                 >

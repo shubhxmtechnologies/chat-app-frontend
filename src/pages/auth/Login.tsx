@@ -117,14 +117,14 @@ const Login = () => {
             {/* Top Navigation Header */}
             <header className="w-full max-w-5xl mx-auto flex items-center justify-between z-10">
                 <div className="flex items-center gap-2.5">
-                    <div className="size-10 rounded-2xl bg-gradient-chat-sender flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-                        <MessageCircle className="size-5" />
+                    <div className="size-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-xs">
+                        <MessageCircle className="size-4.5" />
                     </div>
-                    <span className="text-lg font-bold tracking-tight text-foreground">
+                    <span className="text-base font-semibold tracking-tight text-foreground">
                         Pinsta Chat
                     </span>
                 </div>
-                <div className="flex items-center ">
+                <div className="flex items-center">
                     <ThemeToggle />
                 </div>
 
@@ -134,12 +134,12 @@ const Login = () => {
             <main className="w-full max-w-5xl mx-auto my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center z-10">
                 {/* Left Side: Brand Story & Glowing Hero Section (Visible on tablet/desktop) */}
                 <div className="hidden md:flex lg:col-span-6 flex-col justify-center space-y-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold w-fit">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium w-fit">
                         <Sparkles className="size-3.5" />
                         <span>Welcome Back</span>
                     </div>
 
-                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1] text-foreground">
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight leading-[1.15] text-foreground">
                         Your encrypted <br />
                         <span className="text-primary">
                             conversations await.
@@ -147,18 +147,18 @@ const Login = () => {
                     </h1>
 
                     <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                        Stay connected with real-time typing indicators, Instagram-style colorful bubbles, and end-to-end security.
+                        Stay connected with real-time typing indicators, clean semantic bubbles, and end-to-end security.
                     </p>
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                        <div className="p-3.5 rounded-2xl bg-card/40 border border-border/60 backdrop-blur-sm shadow-xs">
-                            <Zap className="size-5 text-indigo-500 mb-1.5" />
-                            <h3 className="text-xs font-bold text-foreground">Instant Sync</h3>
+                        <div className="p-3.5 rounded-2xl bg-card/60 border border-border/60 backdrop-blur-sm shadow-xs">
+                            <Zap className="size-5 text-primary mb-1.5" />
+                            <h3 className="text-xs font-semibold tracking-tight text-foreground">Instant Sync</h3>
                             <p className="text-[11px] text-muted-foreground mt-0.5">Real-time socket delivery</p>
                         </div>
-                        <div className="p-3.5 rounded-2xl bg-card/40 border border-border/60 backdrop-blur-sm shadow-xs">
-                            <Shield className="size-5 text-pink-500 mb-1.5" />
-                            <h3 className="text-xs font-bold text-foreground">Private & Safe</h3>
+                        <div className="p-3.5 rounded-2xl bg-card/60 border border-border/60 backdrop-blur-sm shadow-xs">
+                            <Shield className="size-5 text-primary mb-1.5" />
+                            <h3 className="text-xs font-semibold tracking-tight text-foreground">Private & Safe</h3>
                             <p className="text-[11px] text-muted-foreground mt-0.5">Zero unverified tracking</p>
                         </div>
                     </div>
@@ -270,7 +270,7 @@ const Login = () => {
                             <Button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full h-12 mt-4 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
+                                className="w-full h-11 mt-4 rounded-xl font-medium text-sm shadow-xs transition-all gap-2"
                             >
                                 {loading ? (
                                     <div className="flex items-center gap-2">
@@ -290,7 +290,7 @@ const Login = () => {
                             Don&apos;t have an account?{" "}
                             <Link
                                 to="/register"
-                                className="font-bold text-primary hover:underline transition-all ml-1"
+                                className="font-medium text-primary hover:underline transition-all ml-1"
                             >
                                 Register now
                             </Link>

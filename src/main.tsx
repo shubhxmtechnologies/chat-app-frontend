@@ -6,6 +6,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { PresenceProvider } from "./context/PresenceContext";
 import { initAudioUnlock, preloadReceiveSound } from "./utils/sound.util";
+import { TooltipProvider } from "./components/ui/tooltip";
 import "./index.css";
 
 // Warm up and initialize audio subsystem
@@ -26,13 +27,13 @@ ReactDOM.createRoot(
 ).render(
   <React.StrictMode>
     <ThemeProvider>
-
       <AuthProvider>
         <PresenceProvider>
-          <AppRoutes />
+          <TooltipProvider>
+            <AppRoutes />
+          </TooltipProvider>
         </PresenceProvider>
       </AuthProvider>
     </ThemeProvider>
-
   </React.StrictMode>
 );

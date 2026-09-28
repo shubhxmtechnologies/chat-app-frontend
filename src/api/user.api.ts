@@ -249,3 +249,23 @@ export const savePushSubscription = async (subscription: PushSubscription): Prom
         throw error;
     }
 };
+
+export const deletePushSubscription = async (): Promise<void> => {
+    try {
+        await axiosClient.delete("/users/me/push-subscription");
+    } catch (error) {
+        console.error("Failed to delete push subscription", error);
+        throw error;
+    }
+};
+
+export const sendTestPushNotification = async (): Promise<void> => {
+    try {
+        await axiosClient.post("/users/me/push-test");
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data?.message ?? "Failed to send test notification");
+        }
+        throw error;
+    }
+};

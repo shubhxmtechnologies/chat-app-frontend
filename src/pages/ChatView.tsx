@@ -28,6 +28,8 @@ import { usePresence } from "@/context/PresenceContext";
 import { getRelativeTime } from "@/utils/time.util";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { preloadReceiveSound } from "@/utils/sound.util";
 import MessageBubble from "@/components/MessageBubble";
@@ -43,6 +45,7 @@ const formatDateDivider = (dateString?: Date | string) => {
     return format(date, "d MMM yyyy"); // e.g. 12 Aug 2026
 };
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationPushBanner } from "@/components/NotificationPushBanner";
 
 import type { Chat } from "@/types/chat.types";
 import type { Message } from "@/types/message.types";
@@ -462,14 +465,18 @@ const ChatView = () => {
                             className="relative shrink-0 cursor-pointer group"
                             title="Click to view profile & DP"
                         >
-                            <img
-                                src={otherUserAvatar}
-                                alt={otherUser.username}
-                                className="size-10 rounded-full object-cover border border-border group-hover:ring-2 group-hover:ring-primary/40 transition-all"
-                            />
+                            <Avatar className="size-10 border border-border/60 group-hover:scale-102 transition-transform">
+                                <AvatarImage
+                                    src={otherUserAvatar}
+                                    alt={otherUser.username}
+                                />
+                                <AvatarFallback className="text-xs font-semibold">
+                                    {otherUser.username?.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
                             {online && (
                                 <span
-                                    className="absolute bottom-0 right-0 size-3 rounded-full bg-emerald-500 ring-2 ring-card"
+                                    className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-card"
                                     title="Online"
                                 />
                             )}
@@ -484,7 +491,7 @@ const ChatView = () => {
                             title="Click to view profile"
                         >
                             <div className="flex items-center gap-1.5">
-                                <h2 className="text-[15px] font-bold leading-tight text-foreground group-hover:text-primary transition-colors truncate">
+                                <h2 className="text-sm font-semibold tracking-tight leading-tight text-foreground group-hover:text-primary transition-colors truncate">
                                     {displayName}
                                 </h2>
                                 {otherUser.name?.firstName && (
@@ -512,7 +519,7 @@ const ChatView = () => {
                             </p>
                         </div>
                     ) : (
-                        <div className="h-4 bg-muted rounded w-32 animate-pulse" />
+                        <div className="h-4 bg-muted rounded-md w-32 animate-pulse" />
                     )}
                 </div>
 
@@ -520,7 +527,7 @@ const ChatView = () => {
                 {otherUser && (
                     <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                         {/* Theme Toggle Action */}
-                        <ThemeToggle className="size-8" />
+                        <ThemeToggle className="size-8 rounded-xl" />
 
                         {/* Mute Action */}
                         <Button
@@ -529,7 +536,7 @@ const ChatView = () => {
                             disabled={isMuting}
                             onClick={handleMuteToggle}
                             className={cn(
-                                "size-8 text-muted-foreground hover:text-foreground",
+                                "size-8 rounded-xl text-muted-foreground hover:text-foreground",
                                 isMuted && "text-amber-500 hover:text-amber-600"
                             )}
                             aria-label="Mute chat"
@@ -550,7 +557,7 @@ const ChatView = () => {
                             disabled={isBlocking}
                             onClick={handleBlockToggle}
                             className={cn(
-                                "h-8 px-2.5 text-xs font-medium gap-1.5",
+                                "h-8 px-2.5 rounded-xl text-xs font-medium gap-1.5",
                                 chat?.blockedByMe
                                     ? "text-foreground"
                                     : "text-muted-foreground hover:text-destructive"
@@ -573,6 +580,11 @@ const ChatView = () => {
                     </div>
                 )}
             </header>
+
+            {/* Real-time Notification & WebPush Banner */}
+            <div className="w-full max-w-240 mx-auto px-2 sm:px-4">
+                <NotificationPushBanner compact />
+            </div>
 
             {/* =========================================================================
                 PARTICIPANT PROFILE DETAILS MODAL
@@ -620,7 +632,7 @@ const ChatView = () => {
                                 </div>
 
                                 <div>
-                                    <h3 className="text-lg font-bold text-foreground">
+                                    <h3 className="text-base font-semibold tracking-tight text-foreground">
                                         {displayName}
                                     </h3>
 
@@ -629,7 +641,7 @@ const ChatView = () => {
                                         <button
                                             type="button"
                                             onClick={handleCopyOtherUserHandle}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 hover:bg-secondary text-xs font-medium text-muted-foreground hover:text-foreground transition-all"
                                             title="Click to copy handle"
                                         >
                                             <span>@{otherUser.username}</span>
@@ -643,7 +655,7 @@ const ChatView = () => {
                                 </div>
 
                                 {/* Online Presence Badge */}
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary text-[11px] font-medium text-muted-foreground">
+                                <Badge variant="secondary" className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium text-muted-foreground border-none">
                                     <span
                                         className={cn(
                                             "size-2 rounded-full",
@@ -653,12 +665,12 @@ const ChatView = () => {
                                     <span>
                                         {online ? "Online" : lastSeenTime ? `Last seen ${getRelativeTime(lastSeenTime)}` : "Offline"}
                                     </span>
-                                </div>
+                                </Badge>
                             </div>
 
                             {/* Bio details */}
                             <div className="px-6 pb-6">
-                                <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground leading-relaxed">
+                                <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60 text-xs text-muted-foreground leading-relaxed">
                                     <span className="font-semibold text-foreground block mb-0.5">Bio:</span>
                                     {otherUser.bio || "No bio provided."}
                                 </div>
@@ -667,7 +679,7 @@ const ChatView = () => {
                                 <div className="flex gap-2 pt-4">
                                     <Button
                                         variant="outline"
-                                        className="flex-1 rounded-xl text-xs font-semibold"
+                                        className="flex-1 rounded-xl text-xs font-medium"
                                         onClick={() => {
                                             setShowProfileModal(false);
                                             setShowFullDp(true);
@@ -679,7 +691,7 @@ const ChatView = () => {
 
                                     <Button
                                         variant={chat?.blockedByMe ? "secondary" : "destructive"}
-                                        className="flex-1 rounded-xl text-xs font-semibold"
+                                        className="flex-1 rounded-xl text-xs font-medium"
                                         disabled={isBlocking}
                                         onClick={handleBlockToggle}
                                     >
@@ -832,14 +844,14 @@ const ChatView = () => {
                                 <React.Fragment key={message._id || message.clientMessageId}>
                                     {showDateDivider && (
                                         <div className="flex items-center justify-center my-6 w-full relative z-10">
-                                            <div className="bg-card text-muted-foreground text-xs font-medium px-4 py-1.5 rounded-full shadow-sm border border-border/40">
+                                            <div className="bg-card/90 backdrop-blur-xs text-muted-foreground text-[11px] font-medium px-3.5 py-1 rounded-full shadow-2xs border border-border/60">
                                                 {formatDateDivider(message.createdAt)}
                                             </div>
                                         </div>
                                     )}
                                     {unseenDividerId === (message.clientMessageId || message._id) && (
                                         <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center my-4 w-full relative z-10">
-                                            <div className="bg-primary/10 text-primary text-[12px] font-semibold px-4 py-1.5 rounded-full border border-primary/20 shadow-sm backdrop-blur-md">
+                                            <div className="bg-primary/10 text-primary text-[11px] font-medium px-3.5 py-1 rounded-full border border-primary/20 shadow-2xs backdrop-blur-xs">
                                                 Unread Messages
                                             </div>
                                         </motion.div>
@@ -870,10 +882,10 @@ const ChatView = () => {
                             exit={{ opacity: 0, scale: 0, y: 10 }}
                             type="button"
                             onClick={() => scrollToBottom(false)}
-                            className="absolute bottom-20 right-4 flex items-center justify-center size-10 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground shadow-lg hover:bg-primary active:scale-95 transition-all z-10"
+                            className="absolute bottom-20 right-4 flex items-center justify-center size-9 rounded-xl bg-card/90 backdrop-blur-md text-foreground border border-border/80 shadow-md hover:bg-card active:scale-95 transition-all z-10"
                             aria-label="Scroll to bottom"
                         >
-                            <ArrowDown className="size-5" />
+                            <ArrowDown className="size-4" />
                         </motion.button>
                     )}
                 </AnimatePresence>
@@ -889,10 +901,10 @@ const ChatView = () => {
                             className="px-3 lg:px-4 shrink-0 overflow-hidden"
                         >
                             <div className="flex items-center gap-2 py-1">
-                                <div className="bg-card dark:bg-card/90 text-foreground border border-border/80 px-3 py-1.5 rounded-2xl rounded-bl-sm shadow-xs flex items-center gap-1.5 w-fit">
-                                    <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                    <span className="size-1.5 bg-primary/70 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                    <span className="size-1.5 bg-primary/70 rounded-full animate-bounce" />
+                                <div className="bg-muted text-foreground border border-border/40 px-3 py-1.5 rounded-2xl rounded-bl-xs shadow-xs flex items-center gap-1.5 w-fit">
+                                    <span className="size-1.5 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                    <span className="size-1.5 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                    <span className="size-1.5 bg-muted-foreground/60 rounded-full animate-bounce" />
                                 </div>
 
                             </div>

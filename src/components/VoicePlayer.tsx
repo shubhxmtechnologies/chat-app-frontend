@@ -74,9 +74,9 @@ const VoicePlayer = ({ src, isMine }: Props) => {
                 type="button"
                 onClick={togglePlay}
                 className={cn(
-                    "flex items-center justify-center size-8 rounded-full shrink-0 transition-transform active:scale-95 shadow-sm",
+                    "flex items-center justify-center size-8 rounded-full shrink-0 transition-transform active:scale-95 shadow-xs",
                     isMine
-                        ? "bg-white text-indigo-500 hover:bg-white/90"
+                        ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
                         : "bg-primary text-primary-foreground hover:bg-primary/90"
                 )}
             >
@@ -92,7 +92,7 @@ const VoicePlayer = ({ src, isMine }: Props) => {
                     <motion.div
                         className={cn(
                             "absolute left-0 h-full rounded-full",
-                            isMine ? "bg-white" : "bg-primary"
+                            isMine ? "bg-primary-foreground" : "bg-primary"
                         )}
                         style={{ width: `${progress}%` }}
                         layout
@@ -109,7 +109,7 @@ const VoicePlayer = ({ src, isMine }: Props) => {
                 
                 <div className={cn(
                     "flex items-center justify-between text-[9px] font-medium tracking-wide",
-                    isMine ? "text-white/80" : "text-muted-foreground"
+                    isMine ? "text-primary-foreground/80" : "text-muted-foreground"
                 )}>
                     <span>{formatTime(audioRef.current?.currentTime || 0)}</span>
                     <span>{formatTime(duration)}</span>

@@ -139,3 +139,19 @@ export const sendMessageBatch = async (
         throw error;
     }
 };
+
+export const downloadMediaMessage = async (messageId: string): Promise<Blob> => {
+    try {
+        const response = await axiosClient.get(`/messages/${messageId}/download`, {
+            responseType: "blob",
+        });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                error.response?.data?.message ?? "Failed to download media"
+            );
+        }
+        throw error;
+    }
+};

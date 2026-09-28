@@ -217,35 +217,37 @@ const MessageInput = ({
                 }
             }}
             className={cn(
-                "flex flex-col gap-1.5 w-full relative p-1.5 sm:p-2 rounded-[28px] transition-all duration-300 shadow-md border",
-                isDragging ? "bg-primary/5 border-primary ring-2 ring-primary/50" : "bg-card border-border/70"
+                "flex flex-col gap-1.5 w-full relative p-1.5 sm:p-2 rounded-2xl transition-all duration-200 shadow-xs border",
+                isDragging
+                    ? "bg-primary/5 border-primary ring-2 ring-primary/20"
+                    : "bg-card/90 backdrop-blur-md border-border/80 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20"
             )}
         >
             {isDragging && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-[28px] bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary/60 text-primary font-medium pointer-events-none">
+                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary/60 text-primary font-medium text-xs pointer-events-none">
                     Drop your image here
                 </div>
             )}
 
             {/* Reply Preview Box */}
             {replyingTo && (
-                <div className="flex items-center justify-between px-3 py-1.5 mx-1 rounded-2xl bg-primary/10 border-l-4 border-primary min-w-0 max-w-full overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-1.5 mx-1 rounded-xl bg-muted/60 border-l-3 border-primary min-w-0 max-w-full overflow-hidden">
                     <div className="flex flex-col overflow-hidden min-w-0 flex-1 mr-2">
-                        <span className="text-xs font-semibold text-primary">Replying to message</span>
-                        <span className="text-sm truncate text-muted-foreground">
+                        <span className="text-[11px] font-semibold text-primary tracking-tight">Replying to message</span>
+                        <span className="text-xs truncate text-muted-foreground">
                             {replyingTo.messageType === "text"
                                 ? (replyingTo.text && replyingTo.text.length > 80 ? `${replyingTo.text.slice(0, 80)}…` : replyingTo.text)
                                 : `[${replyingTo.messageType === "voice" ? "Voice message" : replyingTo.messageType === "image" ? "Photo" : replyingTo.messageType}]`}
                         </span>
                     </div>
-                    <button type="button" onClick={onCancelReply} className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full text-muted-foreground transition-colors shrink-0">
-                        <X className="size-4" />
+                    <button type="button" onClick={onCancelReply} className="p-1 hover:bg-muted rounded-lg text-muted-foreground transition-colors shrink-0">
+                        <X className="size-3.5" />
                     </button>
                 </div>
             )}
             {/* Voice Recorder Overlay */}
             {showVoice && (
-                <div className="p-2 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 mx-1 mb-0.5">
+                <div className="p-2 rounded-xl border border-primary/30 bg-primary/5 mx-1 mb-0.5">
                     <VoiceRecorder
                         onSendVoice={handleSendVoice}
                         onCancel={() => setShowVoice(false)}
@@ -259,15 +261,15 @@ const MessageInput = ({
                     <img
                         src={preview}
                         alt="Attachment preview"
-                        className="max-h-24 max-w-40 rounded-xl object-cover border border-border shadow-md"
+                        className="max-h-24 max-w-40 rounded-xl object-cover border border-border/80 shadow-xs"
                     />
                     <button
                         type="button"
                         onClick={cancelFile}
-                        className="absolute -top-1.5 -right-1.5 size-6 rounded-full bg-destructive text-white flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                        className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-xs hover:scale-105 transition-transform"
                         aria-label="Remove image"
                     >
-                        <X className="size-3.5" />
+                        <X className="size-3" />
                     </button>
                 </div>
             )}
@@ -291,7 +293,7 @@ const MessageInput = ({
                             size="icon"
                             onClick={() => fileRef.current?.click()}
                             aria-label="Attach photo"
-                            className="size-9 rounded-full text-muted-foreground hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors shrink-0"
+                            className="size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0"
                         >
                             <ImageIcon className="size-4" />
                         </Button>
@@ -307,7 +309,7 @@ const MessageInput = ({
                         disabled={showVoice || text.length > 0 || disabled}
                         onClick={() => setShowVoice(true)}
                         aria-label="Record voice message"
-                        className="size-9 rounded-full text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10 transition-colors shrink-0"
+                        className="size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0"
                     >
                         <Mic className="size-4" />
                     </Button>
@@ -352,18 +354,18 @@ const MessageInput = ({
                             }
                         }}
                         disabled={disabled}
-                        className="flex-1 bg-transparent px-2 text-[16px] sm:text-[14px] leading-snug py-2 min-h-[36px] max-h-28 text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50 resize-none overflow-y-auto break-words [word-break:normal] scrollbar-thin"
+                        className="flex-1 bg-transparent px-2 text-[16px] sm:text-sm leading-snug py-2 min-h-[36px] max-h-28 text-foreground placeholder:text-muted-foreground outline-none border-none disabled:opacity-50 resize-none overflow-y-auto break-words [word-break:normal] scrollbar-thin"
                     />
                 )}
 
                 {/* Image Placeholder Info Label when Image is Selected */}
                 {!showVoice && (preview || file) && (
-                    <div className="flex-1 px-2 text-[13px] text-muted-foreground italic truncate select-none">
+                    <div className="flex-1 px-2 text-xs text-muted-foreground italic truncate select-none">
                         Ready to send photo
                     </div>
                 )}
 
-                {/* Centered Vibrant Send Button */}
+                {/* Clean Send Button */}
                 {!showVoice && (
                     <Button
                         type="submit"
@@ -400,13 +402,13 @@ const MessageInput = ({
                         }}
                         aria-label="Send message"
                         className={cn(
-                            "size-9 rounded-full shrink-0 transition-all duration-200 shadow-sm flex items-center justify-center",
+                            "size-9 rounded-xl shrink-0 transition-all duration-150 shadow-xs flex items-center justify-center",
                             text.trim() || file
-                                ? "bg-gradient-chat-sender text-white hover:opacity-95 hover:scale-105 active:scale-95 shadow-indigo-500/25 cursor-pointer"
-                                : "bg-muted/80 text-muted-foreground/60 opacity-60 cursor-not-allowed"
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 cursor-pointer shadow-xs"
+                                : "bg-muted text-muted-foreground/50 cursor-not-allowed"
                         )}
                     >
-                        <Send className="size-4 -ml-0.5 mt-0.5" />
+                        <Send className="size-4" />
                     </Button>
                 )}
             </div>

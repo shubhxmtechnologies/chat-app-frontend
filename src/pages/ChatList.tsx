@@ -28,6 +28,7 @@ import { getSupportTicket } from "@/api/support.api";
 import { subscribeUserToPush } from "@/utils/push.util";
 import { envConfig } from "@/config/env";
 import { InstallPwaModal } from "@/components/InstallPwaModal";
+import { NotificationPushBanner } from "@/components/NotificationPushBanner";
 
 import { playReceiveSound } from "@/utils/sound.util";
 
@@ -38,8 +39,9 @@ import { usePresence } from "@/context/PresenceContext";
 import { socket } from "@/socket/socketClient";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import type { Chat } from "@/types/chat.types";
@@ -61,6 +63,7 @@ const ChatList = () => {
     // Push notification modal state
     const [showPushModal, setShowPushModal] = useState(false);
     const [pushModalStatus, setPushModalStatus] = useState<"idle" | "loading" | "error">("idle");
+    const [pushErrorMsg, setPushErrorMsg] = useState("");
 
     useEffect(() => {
         if (!user) return;
@@ -94,15 +97,18 @@ const ChatList = () => {
 
     const handlePushAllow = async () => {
         setPushModalStatus("loading");
+        setPushErrorMsg("");
         try {
-            const success = await subscribeUserToPush(envConfig.VAPID_PUBLIC_KEY);
-            if (success) {
+            const res = await subscribeUserToPush(envConfig.VAPID_PUBLIC_KEY);
+            if (res.success) {
                 setShowPushModal(false);
             } else {
                 setPushModalStatus("error");
+                setPushErrorMsg(res.error || "Failed to enable notifications. Please check browser permissions.");
             }
         } catch (e) {
             setPushModalStatus("error");
+            setPushErrorMsg("An unexpected error occurred while enabling notifications.");
         }
     };
 
@@ -221,7 +227,7 @@ const ChatList = () => {
 
     const debouncedSearch = useDebounce(searchQuery, 300);
     const searchAbortRef = useRef<AbortController | null>(null);
-    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const searchInputRef = useRef<HTMLTextAreaElement | null>(null);
 
     // Fetch conversations
     const fetchChats = async (isManualRefresh = false, forceRefetch = false) => {
@@ -566,21 +572,21 @@ const ChatList = () => {
                 <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
                     {/* Brand */}
                     <div className="flex items-center gap-2.5">
-                        <div className="size-10 rounded-2xl bg-gradient-chat-sender flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-                            <MessageCircle className="size-5" />
+                        <div className="size-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
+                            <MessageCircle className="size-4.5" />
                         </div>
-                        <div className="hidden md:block">
-                            <h1 className="text-lg font-bold leading-none tracking-tight text-foreground">
+                        <div className="hidden sm:block">
+                            <h1 className="text-base font-semibold leading-none tracking-tight text-foreground">
                                 Pinsta Chat
                             </h1>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
                                 End-to-end encrypted
                             </p>
                         </div>
                     </div>
 
                     {/* Actions & Profile Pill */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         {/* Global Mute Button */}
                         <Button
                             variant="ghost"
@@ -589,7 +595,7 @@ const ChatList = () => {
                             onClick={handleGlobalMuteToggle}
                             aria-label="Toggle Global Mute"
                             className={cn(
-                                "size-9 transition-colors",
+                                "size-9 rounded-xl transition-colors",
                                 isGlobalMuted ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-foreground"
                             )}
                         >
@@ -606,18 +612,21 @@ const ChatList = () => {
                         <ThemeToggle />
 
                         {/* Profile Link */}
-                        <Link to="/profile">
+                        <Link to="/profile" title="View profile & settings">
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-9 px-2 gap-2 text-muted-foreground hover:text-foreground"
+                                className="h-9 px-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
                             >
-                                <img
-                                    src={user?.avatarUrl || DEFAULT_AVATAR}
-                                    alt={user?.username || "Profile"}
-                                    className="size-6 rounded-full object-cover border border-border"
-                                />
-
+                                <Avatar className="size-7">
+                                    <AvatarImage
+                                        src={user?.avatarUrl || DEFAULT_AVATAR}
+                                        alt={user?.username || "Profile"}
+                                    />
+                                    <AvatarFallback className="text-[10px] font-semibold">
+                                        {user?.username?.slice(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
                             </Button>
                         </Link>
 
@@ -648,6 +657,11 @@ const ChatList = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Real-time Notification & WebPush Banner */}
+            <div className="w-full max-w-180">
+                <NotificationPushBanner />
+            </div>
 
             {/* PWA Install Banner */}
             <div className="w-full max-w-180">
@@ -697,15 +711,33 @@ const ChatList = () => {
                     )}
                 </AnimatePresence>
                 {/* Search Bar */}
-                <div className="relative">
+                <div className="relative w-full">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                    <Input
+                    <textarea
                         ref={searchInputRef}
-                        type="text"
-                        placeholder="Search conversations or discover people by @username..."
+                        name="txt_search_conversations"
+                        id="txt_search_conversations"
+                        rows={1}
+                        placeholder="Search chats or @username..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 pr-9 h-11 bg-card border-border/80 shadow-xs text-sm rounded-xl"
+                        onChange={(e) => setSearchQuery(e.target.value.replace(/[\r\n]+/g, ""))}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                if (e.nativeEvent.isComposing) return;
+                                e.preventDefault();
+                            }
+                        }}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-1password-ignore="true"
+                        data-form-type="other"
+                        enterKeyHint="search"
+                        role="textbox"
+                        className="w-full pl-10 pr-9 py-2.5 h-11 min-h-[44px] max-h-11 bg-card border border-border/80 shadow-xs text-[16px] sm:text-sm rounded-xl resize-none overflow-hidden outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 placeholder:text-muted-foreground leading-normal break-words [word-break:normal] [overflow-wrap:anywhere] box-border"
                     />
                     {searchQuery && (
                         <button
@@ -775,11 +807,15 @@ const ChatList = () => {
                                             className="flex items-center justify-between p-2.5 rounded-lg hover:bg-secondary/60 transition-colors border border-transparent hover:border-border/60"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <img
-                                                    src={searchUser.avatarUrl || DEFAULT_AVATAR}
-                                                    alt={searchUser.username}
-                                                    className="size-10 rounded-full object-cover border border-border"
-                                                />
+                                                <Avatar className="size-10 border border-border/60 shrink-0">
+                                                    <AvatarImage
+                                                        src={searchUser.avatarUrl || DEFAULT_AVATAR}
+                                                        alt={searchUser.username}
+                                                    />
+                                                    <AvatarFallback className="text-xs font-semibold">
+                                                        {searchUser.username?.slice(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
                                                 <div>
                                                     <h3 className="text-sm font-semibold leading-tight">
                                                         {displayName}
@@ -914,21 +950,25 @@ const ChatList = () => {
                                                         navigate(`/chats/${chat._id}`);
                                                     }}
                                                     className={cn(
-                                                        "w-full flex items-center gap-3.5 p-3 rounded-xl text-left",
-                                                        "border border-border/60 bg-card hover:bg-secondary/70 active:bg-secondary transition-all duration-150 shadow-2xs group",
+                                                        "w-full flex items-center gap-3.5 p-3 rounded-2xl text-left",
+                                                        "border border-border/60 bg-card hover:bg-secondary/60 active:bg-secondary/80 transition-all duration-150 shadow-2xs group",
                                                         isBlocked && "opacity-60 bg-muted/30"
                                                     )}
                                                 >
                                                     {/* Avatar with live presence ring */}
                                                     <div className="relative shrink-0">
-                                                        <img
-                                                            src={otherUser.avatarUrl || DEFAULT_AVATAR}
-                                                            alt={otherUser.username}
-                                                            className="size-12 rounded-full object-cover border border-border group-hover:scale-102 transition-transform"
-                                                        />
+                                                        <Avatar className="size-11 border border-border/50 group-hover:scale-[1.02] transition-transform">
+                                                            <AvatarImage
+                                                                src={otherUser.avatarUrl || DEFAULT_AVATAR}
+                                                                alt={otherUser.username}
+                                                            />
+                                                            <AvatarFallback className="text-xs font-semibold">
+                                                                {otherUser.username?.slice(0, 2).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
                                                         {online && (
                                                             <span
-                                                                className="absolute bottom-0 right-0 size-3.5 rounded-full bg-emerald-500 ring-2 ring-card"
+                                                                className="absolute bottom-0 right-0 size-3 rounded-full bg-emerald-500 ring-2 ring-card"
                                                                 title="Online"
                                                             />
                                                         )}
@@ -938,22 +978,21 @@ const ChatList = () => {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between gap-2">
                                                             <div className="flex items-center gap-1.5 truncate">
-                                                                <h3 className="text-[14px] font-semibold text-foreground truncate">
+                                                                <h3 className="text-sm font-semibold text-foreground tracking-tight truncate">
                                                                     {displayName}
                                                                 </h3>
 
-
                                                                 {isBlocked && (
-                                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium bg-destructive/10 text-destructive">
+                                                                    <Badge variant="destructive" className="h-4 px-1.5 text-[10px] font-medium gap-1 rounded-sm">
                                                                         <UserX className="size-2.5" />
                                                                         Blocked
-                                                                    </span>
+                                                                    </Badge>
                                                                 )}
                                                             </div>
 
                                                             {/* Timestamp */}
                                                             {chat.lastMessage && (
-                                                                <span className="text-[11px] text-emerald-500 dark:text-emerald-400 shrink-0 font-medium">
+                                                                <span className="text-[11px] text-muted-foreground shrink-0 font-normal">
                                                                     {new Date(chat.lastMessage.createdAt).toLocaleTimeString('en-US', {
                                                                         hour: 'numeric',
                                                                         minute: '2-digit',
@@ -976,11 +1015,11 @@ const ChatList = () => {
                                                             </div>
 
                                                             {chat.unreadCount > 0 && (
-                                                                <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-semibold shrink-0 shadow-xs animate-in zoom-in-50">
+                                                                <Badge className="min-w-5 h-5 px-1.5 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white text-[11px] font-semibold shrink-0 shadow-xs border-none flex items-center justify-center animate-in zoom-in-50">
                                                                     {chat.unreadCount > 99
                                                                         ? "99+"
                                                                         : chat.unreadCount}
-                                                                </span>
+                                                                </Badge>
                                                             )}
                                                         </div>
                                                     </div>
@@ -1095,7 +1134,7 @@ const ChatList = () => {
                 <div className="relative">
                     <Bug className="size-4 text-emerald-500" />
                     {supportUnreadCount > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-3.5 h-3.5 px-1 rounded-full bg-destructive text-[9px] text-white font-bold animate-pulse">
+                        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-3.5 h-3.5 px-1 rounded-full bg-destructive text-[9px] text-white font-semibold animate-pulse">
                             {supportUnreadCount}
                         </span>
                     )}
@@ -1121,7 +1160,7 @@ const ChatList = () => {
                             <div className="size-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Bell className="size-6" />
                             </div>
-                            <h3 className="text-lg font-bold text-foreground mb-2">
+                            <h3 className="text-base font-semibold tracking-tight text-foreground mb-2">
                                 Never Miss a Message
                             </h3>
                             <p className="text-sm text-muted-foreground mb-6">
@@ -1129,12 +1168,14 @@ const ChatList = () => {
                             </p>
                             
                             {pushModalStatus === "error" && (
-                                <p className="text-xs text-destructive mb-4">Failed to enable notifications. Please check browser permissions.</p>
+                                <p className="text-xs text-destructive mb-4 text-left p-3 rounded-xl bg-destructive/10 border border-destructive/20 leading-relaxed font-medium">
+                                    {pushErrorMsg || "Failed to enable notifications. Please check browser permissions."}
+                                </p>
                             )}
 
                             <div className="space-y-2.5">
                                 <Button
-                                    className="w-full rounded-xl font-bold"
+                                    className="w-full rounded-xl font-semibold"
                                     onClick={handlePushAllow}
                                     disabled={pushModalStatus === "loading"}
                                 >

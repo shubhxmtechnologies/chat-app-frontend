@@ -277,14 +277,14 @@ const Register = () => {
             {/* Top Minimal Header */}
             <header className="w-full max-w-5xl mx-auto flex items-center justify-between z-10">
                 <div className="flex items-center gap-2.5">
-                    <div className="size-10 rounded-2xl bg-gradient-chat-sender flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-                        <MessageCircle className="size-5" />
+                    <div className="size-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-xs">
+                        <MessageCircle className="size-4.5" />
                     </div>
-                    <span className="text-lg font-bold tracking-tight text-foreground">
+                    <span className="text-base font-semibold tracking-tight text-foreground">
                         Pinsta Chat
                     </span>
                 </div>
-                <div className="flex items-center ">
+                <div className="flex items-center">
                     <ThemeToggle />
                 </div>
 
@@ -294,12 +294,12 @@ const Register = () => {
             <main className="w-full max-w-5xl mx-auto my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center z-10">
                 {/* Left Side: Dynamic Ambient Story & Highlights (Hidden on small mobile, gorgeous on tablet/desktop) */}
                 <div className="hidden md:flex lg:col-span-5 flex-col justify-center space-y-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold w-fit">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium w-fit">
                         <Sparkles className="size-3.5" />
                         <span>Next-Gen Encrypted Messenger</span>
                     </div>
 
-                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1] text-foreground">
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight leading-[1.15] text-foreground">
                         Speed. Privacy. <br />
                         <span className="text-primary">
                             Pure Expression.
@@ -307,27 +307,27 @@ const Register = () => {
                     </h1>
 
                     <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                        Experience real-time encrypted messaging with Instagram-grade colorful bubbles, crystal clear voice notes, and seamless media sharing.
+                        Experience real-time encrypted messaging with clean semantic styling, crystal clear voice notes, and seamless media sharing.
                     </p>
 
                     {/* Dynamic Feature Bullets */}
                     <div className="grid grid-cols-1 gap-3 pt-2">
-                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-card/40 border border-border/60 backdrop-blur-sm shadow-xs">
-                            <div className="size-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-card/60 border border-border/60 backdrop-blur-sm shadow-xs">
+                            <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                 <Zap className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-xs font-bold text-foreground">Ultra-Fast Realtime</h2>
+                                <h2 className="text-xs font-semibold tracking-tight text-foreground">Ultra-Fast Realtime</h2>
                                 <p className="text-[11px] text-muted-foreground">Instant socket delivery & read receipts</p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-card/40 border border-border/60 backdrop-blur-sm shadow-xs">
-                            <div className="size-9 rounded-xl bg-pink-500/10 text-pink-500 flex items-center justify-center shrink-0">
+                        <div className="flex items-center gap-3 p-3 rounded-2xl bg-card/60 border border-border/60 backdrop-blur-sm shadow-xs">
+                            <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                 <Shield className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-xs font-bold text-foreground">Granular Security</h2>
+                                <h2 className="text-xs font-semibold tracking-tight text-foreground">Granular Security</h2>
                                 <p className="text-[11px] text-muted-foreground">Full blocklist management & chat deletion</p>
                             </div>
                         </div>
@@ -340,8 +340,8 @@ const Register = () => {
                         {/* Step Progress Header */}
                         {getStepNumber() > 0 && currentStep !== "creating" && currentStep !== "avatar" && (
                             <div className="mb-8">
-                                <div className="flex items-center justify-between text-xs font-bold tracking-wide uppercase text-muted-foreground mb-2.5">
-                                    <span className="text-primary">Phase {getStepNumber()} of {TOTAL_FORM_STEPS}</span>
+                                <div className="flex items-center justify-between text-xs font-medium tracking-wide uppercase text-muted-foreground mb-2.5">
+                                    <span className="text-primary font-semibold">Phase {getStepNumber()} of {TOTAL_FORM_STEPS}</span>
                                     <span>{Math.round((getStepNumber() / TOTAL_FORM_STEPS) * 100)}% Complete</span>
                                 </div>
                                 <div className="h-2 w-full bg-secondary rounded-full overflow-hidden flex gap-1.5">
@@ -400,7 +400,7 @@ const Register = () => {
                                             Username
                                         </Label>
                                         <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold text-base">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-semibold text-base">
                                                 @
                                             </span>
                                             <Input
@@ -412,7 +412,7 @@ const Register = () => {
                                                 onChange={(e) => handleChange("username", e.target.value)}
                                                 onKeyDown={(e) => e.key === "Enter" && handleNextFromUsername()}
                                                 aria-invalid={Boolean(errors.username)}
-                                                className="pl-10 h-12 text-base rounded-2xl bg-card border-border shadow-xs focus-visible:ring-primary"
+                                                className="pl-10 h-11 text-sm rounded-xl bg-card border-border shadow-xs focus-visible:ring-primary"
                                             />
                                         </div>
                                         {errors.username ? (
@@ -431,7 +431,7 @@ const Register = () => {
                                             type="button"
                                             onClick={handleNextFromUsername}
                                             disabled={isCheckingUsername}
-                                            className="w-full h-12 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
+                                            className="w-full h-11 rounded-xl font-medium text-sm shadow-xs transition-all gap-2"
                                         >
                                             {isCheckingUsername ? (
                                                 <Loader2 className="size-4 animate-spin" />
@@ -448,7 +448,7 @@ const Register = () => {
                                         Already have an account?{" "}
                                         <Link
                                             to="/login"
-                                            className="font-bold text-primary hover:underline transition-all ml-1"
+                                            className="font-medium text-primary hover:underline transition-all ml-1"
                                         >
                                             Sign in
                                         </Link>
@@ -532,14 +532,14 @@ const Register = () => {
                                             type="button"
                                             variant="outline"
                                             onClick={() => setCurrentStep("username")}
-                                            className="h-12 px-5 rounded-2xl border-border hover:bg-secondary"
+                                            className="h-11 px-4 rounded-xl border-border hover:bg-secondary"
                                         >
                                             <ArrowLeft className="size-4" />
                                         </Button>
                                         <Button
                                             type="button"
                                             onClick={handleNextFromName}
-                                            className="flex-1 h-12 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
+                                            className="flex-1 h-11 rounded-xl font-medium text-sm shadow-xs transition-all gap-2"
                                         >
                                             <span>Continue</span>
                                             <ArrowRight className="size-4" />
@@ -701,7 +701,7 @@ const Register = () => {
                                             type="button"
                                             onClick={handleNextFromCredentials}
                                             disabled={isCheckingEmail}
-                                            className="flex-1 h-12 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
+                                            className="flex-1 h-11 rounded-xl font-medium text-sm shadow-xs transition-all gap-2"
                                         >
                                             {isCheckingEmail ? (
                                                 <Loader2 className="size-4 animate-spin" />
@@ -729,7 +729,7 @@ const Register = () => {
                                     className="space-y-6"
                                 >
                                     <div>
-                                        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                                        <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
                                             Tell the world about yourself
                                         </h2>
                                         <p className="mt-2 text-sm text-muted-foreground">
@@ -769,14 +769,14 @@ const Register = () => {
                                             type="button"
                                             variant="outline"
                                             onClick={() => setCurrentStep("credentials")}
-                                            className="h-12 px-5 rounded-2xl border-border hover:bg-secondary"
+                                            className="h-11 px-4 rounded-xl border-border hover:bg-secondary"
                                         >
                                             <ArrowLeft className="size-4" />
                                         </Button>
                                         <Button
                                             type="button"
                                             onClick={() => handleRegisterSubmit()}
-                                            className="flex-1 h-12 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
+                                            className="flex-1 h-11 rounded-xl font-medium text-sm shadow-xs transition-all gap-2"
                                         >
                                             <span>Complete Registration</span>
                                             <Check className="size-4" />
@@ -896,7 +896,7 @@ const Register = () => {
                                                 ) : (
                                                     <div className="flex flex-col items-center text-muted-foreground group-hover:text-primary transition-colors">
                                                         <Camera className="size-8 stroke-[1.5]" />
-                                                        <span className="text-xs mt-1.5 font-bold">Upload Photo</span>
+                                                        <span className="text-xs mt-1.5 font-medium">Upload Photo</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -909,7 +909,7 @@ const Register = () => {
                                                         setAvatarFile(null);
                                                         setAvatarPreview(null);
                                                     }}
-                                                    className="absolute top-0 right-0 size-7 rounded-full bg-destructive text-white flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                                                    className="absolute top-0 right-0 size-7 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-xs hover:scale-105 transition-transform"
                                                     aria-label="Remove photo"
                                                 >
                                                     <X className="size-4" />
@@ -929,7 +929,7 @@ const Register = () => {
                                             type="button"
                                             disabled={uploadingAvatar}
                                             onClick={handleFinishAvatar}
-                                            className="w-full h-12 rounded-2xl font-bold text-sm bg-gradient-chat-sender text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2"
+                                            className="w-full h-11 rounded-xl font-medium text-sm shadow-xs transition-all gap-2"
                                         >
                                             {uploadingAvatar ? (
                                                 <div className="flex items-center gap-2">

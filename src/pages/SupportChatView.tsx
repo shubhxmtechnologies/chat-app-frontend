@@ -109,18 +109,18 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                             }
                         }}
                         className={cn(
-                            "relative px-4 py-2.5 text-[14.5px] leading-[1.45] transition-all duration-300 shadow-sm select-none md:select-text max-w-full min-w-0 overflow-hidden",
+                            "relative px-3.5 py-2.5 text-[14px] leading-relaxed transition-all duration-200 shadow-xs select-none md:select-text max-w-full min-w-0 overflow-hidden",
                             isMe
-                                ? "bg-gradient-chat-sender text-white rounded-[22px] rounded-br-lg shadow-indigo-500/10 font-normal"
-                                : "bg-card dark:bg-card/90 text-foreground border border-border/80 rounded-[22px] rounded-bl-lg shadow-xs"
+                                ? "bg-primary text-primary-foreground rounded-2xl rounded-br-xs font-normal"
+                                : "bg-muted text-foreground border border-border/40 rounded-2xl rounded-bl-xs"
                         )}
                     >
                         {/* Reply Snippet if present */}
                         {replySnippet && (
                             <div
                                 className={cn(
-                                    "mb-2 p-2 rounded-lg text-[12px] opacity-80 border-l-2 max-w-full min-w-0 overflow-hidden",
-                                    isMe ? "bg-white/10 border-white/40 text-white" : "bg-black/5 dark:bg-white/5 border-primary text-foreground"
+                                    "mb-2 p-2 rounded-xl text-[12px] opacity-90 border-l-2 max-w-full min-w-0 overflow-hidden",
+                                    isMe ? "bg-primary-foreground/10 border-primary-foreground/40 text-primary-foreground" : "bg-card/60 border-primary text-foreground"
                                 )}
                             >
                                 <span className="block max-w-full truncate italic">
@@ -138,7 +138,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                         <div
                             className={cn(
                                 "text-[10px] mt-1 text-right font-medium",
-                                isMe ? "text-indigo-100/80" : "text-muted-foreground"
+                                isMe ? "text-primary-foreground/60" : "text-muted-foreground"
                             )}
                         >
                             {getRelativeTime(msg.createdAt)}
@@ -153,7 +153,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
+                                    className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs"
                                     onClick={() => setIsMenuOpen(false)}
                                 />
                                 <motion.div
@@ -161,7 +161,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ duration: 0.15 }}
-                                    className="z-50 w-52 md:w-48 rounded-xl border border-border bg-card shadow-lg p-1 space-y-0.5 fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                                    className="z-50 w-52 md:w-48 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-md shadow-xl p-1.5 space-y-1 fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     {/* 1. Reply Option */}
@@ -171,7 +171,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                                             onReply(msg);
                                             setIsMenuOpen(false);
                                         }}
-                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-foreground hover:bg-muted transition-colors"
                                     >
                                         <Reply className="size-3.5 text-muted-foreground" />
                                         <span>Reply</span>
@@ -182,7 +182,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                                         <button
                                             type="button"
                                             onClick={handleCopy}
-                                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-foreground hover:bg-muted transition-colors"
                                         >
                                             {copied ? (
                                                 <Check className="size-3.5 text-emerald-500" />
@@ -200,7 +200,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                                             setShowInfo(true);
                                             setIsMenuOpen(false);
                                         }}
-                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-foreground hover:bg-muted transition-colors"
                                     >
                                         <Info className="size-3.5 text-muted-foreground" />
                                         <span>Message info</span>
@@ -224,7 +224,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                             e.stopPropagation();
                             setIsMenuOpen((prev) => !prev);
                         }}
-                        className="size-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                        className="size-7 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         aria-label="Message options"
                     >
                         <MoreVertical className="size-4" />
@@ -236,7 +236,7 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
             <AnimatePresence>
                 {showInfo && (
                     <div
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
                         onClick={() => setShowInfo(false)}
                     >
                         <motion.div
@@ -244,16 +244,16 @@ function SupportMessageBubble({ msg, isMe, onReply }: SupportBubbleProps) {
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full max-w-xs bg-card border border-border rounded-2xl p-5 shadow-2xl relative"
+                            className="w-full max-w-xs bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-2xl relative"
                         >
                             <button
                                 type="button"
                                 onClick={() => setShowInfo(false)}
-                                className="absolute top-3 right-3 p-1.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground"
+                                className="absolute top-3.5 right-3.5 p-1.5 rounded-xl bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 <X className="size-4" />
                             </button>
-                            <h3 className="font-bold text-lg mb-4 text-foreground">Message Info</h3>
+                            <h3 className="font-semibold text-base tracking-tight mb-4 text-foreground">Message Info</h3>
                             <div className="space-y-4">
                                 <div>
                                     <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">
@@ -413,25 +413,25 @@ export default function SupportChatView() {
     return (
         <div className="flex flex-col h-full bg-background relative max-w-full overflow-hidden">
             {/* Header */}
-            <header className="h-18 shrink-0 border-b border-border/40 bg-background/80 backdrop-blur-xl px-4 flex items-center justify-between sticky top-0 z-20">
-                <div className="flex items-center gap-4">
+            <header className="h-16 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-xl px-4 flex items-center justify-between sticky top-0 z-20">
+                <div className="flex items-center gap-3">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className=" shrink-0 hover:bg-secondary/50 rounded-full"
+                        className="shrink-0 hover:bg-muted rounded-xl size-9"
                         onClick={() => navigate("/")}
                     >
-                        <ArrowLeft className="size-5" />
+                        <ArrowLeft className="size-4" />
                     </Button>
                     <div className="flex items-center gap-3">
-                        <div className="size-11 rounded-full bg-gradient-chat-sender flex items-center justify-center shrink-0 shadow-sm">
-                            <Bug className="size-5 text-white" />
+                        <div className="size-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-xs">
+                            <Bug className="size-5" />
                         </div>
                         <div className="flex flex-col">
-                            <h2 className="font-semibold text-[15px] leading-tight flex items-center gap-2">
+                            <h2 className="font-semibold text-sm tracking-tight text-foreground flex items-center gap-2">
                                 Developer Contact
                             </h2>
-                            <span className="text-[13px] text-emerald-500 font-medium">Online</span>
+                            <span className="text-[12px] text-emerald-600 dark:text-emerald-400 font-medium">Online</span>
                         </div>
                     </div>
                 </div>
@@ -440,8 +440,8 @@ export default function SupportChatView() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 <div className="flex justify-center mb-6">
-                    <div className="bg-secondary/50 text-muted-foreground text-xs font-medium px-4 py-1.5 rounded-full shadow-sm border border-border/50 text-center max-w-sm flex items-center gap-2">
-                        <MessageSquareWarning className="size-4" />
+                    <div className="bg-muted/70 text-muted-foreground text-xs font-medium px-4 py-1.5 rounded-full shadow-2xs border border-border/50 text-center max-w-sm flex items-center gap-2">
+                        <MessageSquareWarning className="size-3.5 text-muted-foreground" />
                         Report bugs or request new features directly to the developer.
                     </div>
                 </div>

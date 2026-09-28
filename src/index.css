@@ -197,4 +197,16 @@
   html {
     @apply font-sans;
   }
+  /* Crisp, consistent placeholder typography across all inputs & textareas */
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 0.8125rem; /* 13px */
+    opacity: 0.8;
+  }
+  @media (min-width: 640px) {
+    input::placeholder,
+    textarea::placeholder {
+      font-size: 0.875rem; /* 14px */
+    }
+  }
 }

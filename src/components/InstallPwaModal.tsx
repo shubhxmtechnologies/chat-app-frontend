@@ -111,7 +111,7 @@ export const InstallPwaModal = () => {
 
                             <ol className="space-y-3 text-xs text-foreground/90 my-3">
                                 <li className="flex items-start gap-2.5">
-                                    <span className="size-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                                    <span className="size-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold text-[10px] shrink-0 mt-0.5">
                                         1
                                     </span>
                                     <span>
@@ -119,7 +119,7 @@ export const InstallPwaModal = () => {
                                     </span>
                                 </li>
                                 <li className="flex items-start gap-2.5">
-                                    <span className="size-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                                    <span className="size-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold text-[10px] shrink-0 mt-0.5">
                                         2
                                     </span>
                                     <span>
@@ -127,7 +127,7 @@ export const InstallPwaModal = () => {
                                     </span>
                                 </li>
                                 <li className="flex items-start gap-2.5">
-                                    <span className="size-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                                    <span className="size-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold text-[10px] shrink-0 mt-0.5">
                                         3
                                     </span>
                                     <span>
