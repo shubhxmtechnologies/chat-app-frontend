@@ -14,7 +14,7 @@ export const getAudioContext = (): AudioContext | null => {
                 audioCtx = new AudioContextClass();
             }
         }
-        if (audioCtx && audioCtx.state === "suspended") {
+        if (audioCtx && audioCtx.state === "suspended" && isAudioUnlocked) {
             audioCtx.resume().catch(() => {});
         }
         return audioCtx;

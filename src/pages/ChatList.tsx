@@ -29,6 +29,7 @@ import { subscribeUserToPush } from "@/utils/push.util";
 import { envConfig } from "@/config/env";
 import { InstallPwaModal } from "@/components/InstallPwaModal";
 import { NotificationPushBanner } from "@/components/NotificationPushBanner";
+import { AppleEmojiText } from "@/components/AppleEmojiText";
 
 import { playReceiveSound } from "@/utils/sound.util";
 
@@ -559,7 +560,7 @@ const ChatList = () => {
             default:
                 return (
                     <span className="truncate text-muted-foreground">
-                        {chat.lastMessage.text || ""}
+                        <AppleEmojiText text={chat.lastMessage.text || ""} />
                     </span>
                 );
         }

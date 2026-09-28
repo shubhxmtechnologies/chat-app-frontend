@@ -6,6 +6,7 @@ import { socket } from "../socket/socketClient";
 import { useAuth } from "../context/AuthContext";
 import { getCachedSenderInfo } from "../api/chat.api";
 import { playReceiveSound } from "../utils/sound.util";
+import { AppleEmojiText } from "./AppleEmojiText";
 import type { Message } from "../types/message.types";
 
 interface ActiveToast {
@@ -149,7 +150,7 @@ export const InAppNotificationBanner = () => {
                                 {toast.messageType === "text" && (
                                     <MessageSquare className="size-3 text-muted-foreground shrink-0" />
                                 )}
-                                <span className="truncate">{toast.preview}</span>
+                                <span className="truncate"><AppleEmojiText text={toast.preview} /></span>
                             </div>
                         </div>
                     </div>
