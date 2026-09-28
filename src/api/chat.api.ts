@@ -115,3 +115,12 @@ export const deleteChatForEveryone = async (chatId: string): Promise<void> => {
         throw error;
     }
 };
+
+export const getCachedSenderInfo = (chatId: string, senderId: string): { username: string; avatarUrl: string | null } | null => {
+    if (!cachedChats) return null;
+    const chat = cachedChats.find(c => c._id === chatId);
+    if (!chat) return null;
+    const user = chat.participants.find(p => p._id === senderId);
+    if (!user) return null;
+    return { username: user.username, avatarUrl: user.avatarUrl };
+};

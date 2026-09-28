@@ -1,4 +1,4 @@
-const CACHE_NAME = "pinsta-pwa-v4";
+const CACHE_NAME = "pinsta-pwa-v5";
 const PRECACHE_ASSETS = [
     "/",
     "/index.html",
@@ -105,7 +105,7 @@ self.addEventListener("push", (event) => {
                     data = { body: event.data.text() };
                 }
 
-                // If the user currently has this exact chat open and active on screen, don't show OS banner
+                // If the user currently has this exact chat open and focused, don't show OS popup
                 try {
                     const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
                     const isChatActivelyOpen = windowClients.some((client) => {
@@ -185,5 +185,29 @@ self.addEventListener("notificationclick", (event) => {
                 return clients.openWindow(targetUrl);
             }
         })
+    );
+});
+
+// 6. Push Subscription Change Handler (FCM token rotation or recovery)
+self.addEventListener("pushsubscriptionchange", (event) => {
+    event.waitUntil(
+        (async () => {
+            try {
+                const applicationServerKey = event.oldSubscription ? event.oldSubscription.options.applicationServerKey : null;
+                const newSubscription = await self.registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                });
+
+                await fetch("/api/users/me/push-subscription", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ subscription: newSubscription })
+                });
+                console.log("[SW] Push subscription automatically renewed after change event.");
+            } catch (err) {
+                console.error("[SW] Failed to handle pushsubscriptionchange:", err);
+            }
+        })()
     );
 });

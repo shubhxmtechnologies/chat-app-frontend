@@ -250,9 +250,19 @@ export const savePushSubscription = async (subscription: PushSubscription): Prom
     }
 };
 
-export const deletePushSubscription = async (): Promise<void> => {
+export const getPushStatusApi = async (): Promise<{ success: boolean; isSubscribed: boolean; deviceCount: number; globalMute: boolean }> => {
     try {
-        await axiosClient.delete("/users/me/push-subscription");
+        const res = await axiosClient.get("/users/me/push-status");
+        return res.data;
+    } catch (error) {
+        console.error("Failed to get push status", error);
+        return { success: false, isSubscribed: false, deviceCount: 0, globalMute: false };
+    }
+};
+
+export const deletePushSubscription = async (endpoint?: string): Promise<void> => {
+    try {
+        await axiosClient.delete("/users/me/push-subscription", { data: { endpoint } });
     } catch (error) {
         console.error("Failed to delete push subscription", error);
         throw error;

@@ -14,9 +14,12 @@ import ChatList from "../pages/ChatList";
 import ChatView from "../pages/ChatView";
 import Profile from "../pages/Profile";
 import SupportChatView from "../pages/SupportChatView";
+import { InAppNotificationBanner } from "../components/InAppNotificationBanner";
+
 const AppRoutes = () => {
     return (
         <BrowserRouter>
+            <InAppNotificationBanner />
             <Routes>
                 {/* Public (Guest only) */}
 

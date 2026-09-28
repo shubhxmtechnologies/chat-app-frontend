@@ -53,6 +53,8 @@ import {
     subscribeUserToPush, 
     unsubscribeUserFromPush, 
     triggerTestNotification,
+    syncPushSubscription,
+    type PushStatusDetails,
 } from "@/utils/push.util";
 import { envConfig } from "@/config/env";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,16 +84,15 @@ const Profile = () => {
     const [avatarSuccess, setAvatarSuccess] = useState("");
 
     // Push Notifications & Master Alert Controls
-    const [pushDetails, setPushDetails] = useState<{
-        supported: boolean;
-        permission: NotificationPermission | "unsupported";
-        isSubscribed: boolean;
-        isBrave: boolean;
-    }>({
+    const [pushDetails, setPushDetails] = useState<PushStatusDetails>({
         supported: true,
         permission: "default",
         isSubscribed: false,
         isBrave: false,
+        subscription: null,
+        serverSubscribed: false,
+        deviceCount: 0,
+        outOfSync: false,
     });
     const [pushLoading, setPushLoading] = useState(false);
     const [pushActionMsg, setPushActionMsg] = useState("");
@@ -108,12 +109,7 @@ const Profile = () => {
     const refreshPushDetails = async () => {
         try {
             const details = await getPushSubscriptionDetails();
-            setPushDetails({
-                supported: details.supported,
-                permission: details.permission,
-                isSubscribed: details.isSubscribed,
-                isBrave: details.isBrave,
-            });
+            setPushDetails(details);
             if (details.isBrave && !details.isSubscribed && details.permission === "granted") {
                 // In Brave, permission is granted but push subscription isn't active
                 setIsBraveGcmIssue(true);
@@ -188,6 +184,12 @@ const Profile = () => {
         setTestPushSuccess("");
         setPushErrorMsg("");
         try {
+            // If subscription is out of sync or missing, attempt self-healing first
+            if (pushDetails.outOfSync || !pushDetails.isSubscribed) {
+                await syncPushSubscription(envConfig.VAPID_PUBLIC_KEY);
+                await refreshPushDetails();
+            }
+
             const res = await triggerTestNotification();
             if (res.success) {
                 setTestPushSuccess("Test notification delivered in real time! Check your notification center.");
@@ -990,7 +992,7 @@ const Profile = () => {
                         {/* 2. Real-Time Web Push & Device Notifications Card */}
                         <div className="rounded-3xl border border-border/80 bg-card/80 backdrop-blur-xl p-6 shadow-sm space-y-4">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div className="space-y-1">
+                                 <div className="space-y-1">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h3 className="text-base font-semibold tracking-tight text-foreground">
                                             Offline Push Notifications
@@ -1000,12 +1002,19 @@ const Profile = () => {
                                             "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold",
                                             pushDetails.isSubscribed
                                                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                                : pushDetails.outOfSync
+                                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                                                 : "bg-secondary text-muted-foreground border border-border"
                                         )}>
                                             {pushDetails.isSubscribed ? (
                                                 <>
                                                     <CheckCircle2 className="size-3 text-emerald-500" />
-                                                    <span>Active (0ms Real-Time)</span>
+                                                    <span>Active (0ms Real-Time{pushDetails.deviceCount && pushDetails.deviceCount > 1 ? ` · ${pushDetails.deviceCount} devices` : ""})</span>
+                                                </>
+                                            ) : pushDetails.outOfSync ? (
+                                                <>
+                                                    <AlertCircle className="size-3 text-amber-500" />
+                                                    <span>Needs Sync</span>
                                                 </>
                                             ) : (
                                                 <span>Inactive</span>
@@ -1025,24 +1034,22 @@ const Profile = () => {
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                    {pushDetails.isSubscribed && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleSendTestNotification}
-                                            disabled={testPushLoading}
-                                            className="h-9 px-3 rounded-xl text-xs font-semibold gap-1.5"
-                                            title="Send a real-time test notification to this device"
-                                        >
-                                            {testPushLoading ? (
-                                                <Loader2 className="size-3.5 animate-spin" />
-                                            ) : (
-                                                <Send className="size-3.5 text-primary" />
-                                            )}
-                                            <span>Send Test Push</span>
-                                        </Button>
-                                    )}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleSendTestNotification}
+                                        disabled={testPushLoading || !pushDetails.supported}
+                                        className="h-9 px-3 rounded-xl text-xs font-semibold gap-1.5"
+                                        title="Send a real-time test notification to this device"
+                                    >
+                                        {testPushLoading ? (
+                                            <Loader2 className="size-3.5 animate-spin" />
+                                        ) : (
+                                            <Send className="size-3.5 text-primary" />
+                                        )}
+                                        <span>Send Test Push</span>
+                                    </Button>
 
                                     <Button
                                         type="button"
@@ -1081,6 +1088,29 @@ const Profile = () => {
                                     </Button>
                                 </div>
                             </div>
+
+                            {/* Out-of-Sync Recovery Alert Banner */}
+                            {pushDetails.outOfSync && (
+                                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-amber-400 font-medium flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <AlertCircle className="size-4 shrink-0 text-amber-500" />
+                                        <span>Push subscription is out of sync with the server. Click to re-link your device.</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={async () => {
+                                            setPushLoading(true);
+                                            await syncPushSubscription(envConfig.VAPID_PUBLIC_KEY);
+                                            await refreshPushDetails();
+                                            setPushLoading(false);
+                                        }}
+                                        className="h-7 px-3 text-xs bg-amber-500 text-white hover:bg-amber-600 border-none shrink-0"
+                                    >
+                                        Re-link Now
+                                    </Button>
+                                </div>
+                            )}
 
                             {/* Status Feedbacks */}
                             {pushActionMsg && (

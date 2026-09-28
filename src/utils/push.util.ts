@@ -1,7 +1,8 @@
 import { 
     savePushSubscription, 
     deletePushSubscription, 
-    sendTestPushNotification as sendTestPushApi 
+    sendTestPushNotification as sendTestPushApi,
+    getPushStatusApi
 } from "../api/user.api";
 
 export const urlBase64ToUint8Array = (base64String: string): BufferSource => {
@@ -57,10 +58,14 @@ export interface PushStatusDetails {
     isSubscribed: boolean;
     isBrave: boolean;
     subscription: PushSubscription | null;
+    serverSubscribed?: boolean;
+    deviceCount?: number;
+    outOfSync?: boolean;
 }
 
 /**
- * Get current push status including browser permission, active subscription, and Brave detection
+ * Get current push status including browser permission, active subscription, Brave detection,
+ * and whether the backend database has an active subscription record.
  */
 export const getPushSubscriptionDetails = async (): Promise<PushStatusDetails> => {
     const isBrave = await isBraveBrowser();
@@ -72,6 +77,9 @@ export const getPushSubscriptionDetails = async (): Promise<PushStatusDetails> =
             isSubscribed: false,
             isBrave,
             subscription: null,
+            serverSubscribed: false,
+            deviceCount: 0,
+            outOfSync: false,
         };
     }
 
@@ -90,12 +98,29 @@ export const getPushSubscriptionDetails = async (): Promise<PushStatusDetails> =
         console.warn("Error checking existing push subscription:", e);
     }
 
+    // Query backend to verify if database actually has subscription
+    let serverSubscribed = false;
+    let deviceCount = 0;
+    try {
+        const status = await getPushStatusApi();
+        serverSubscribed = !!status.isSubscribed;
+        deviceCount = status.deviceCount || 0;
+    } catch (e) {
+        console.warn("Could not query server push status:", e);
+    }
+
+    const hasBrowserSub = !!subscription && permission === "granted";
+    const outOfSync = permission === "granted" && (!serverSubscribed || !hasBrowserSub);
+
     return {
         supported: true,
         permission,
-        isSubscribed: !!subscription && permission === "granted",
+        isSubscribed: hasBrowserSub && serverSubscribed,
         isBrave,
         subscription,
+        serverSubscribed,
+        deviceCount,
+        outOfSync,
     };
 };
 
@@ -218,23 +243,22 @@ export const subscribeUserToPush = async (vapidPublicKey: string): Promise<PushS
     }
 };
 
-/**
- * Unsubscribe user from Web Push notifications (removes from browser and server)
- */
 export const unsubscribeUserFromPush = async (): Promise<{ success: boolean; error?: string }> => {
     try {
+        let endpoint: string | undefined = undefined;
         if ("serviceWorker" in navigator) {
             const registration = await navigator.serviceWorker.getRegistration("/")
                 || await navigator.serviceWorker.ready;
             if (registration && registration.pushManager) {
                 const subscription = await registration.pushManager.getSubscription();
                 if (subscription) {
+                    endpoint = subscription.endpoint;
                     await subscription.unsubscribe();
                 }
             }
         }
 
-        await deletePushSubscription();
+        await deletePushSubscription(endpoint);
         return { success: true };
     } catch (error: any) {
         console.error("Error unsubscribing from push:", error);
@@ -247,33 +271,45 @@ export const unsubscribeUserFromPush = async (): Promise<{ success: boolean; err
 
 /**
  * Automatically sync existing PushSubscription with backend on login or page load.
- * Ensures backend database always has the active push endpoint even after re-login.
+ * Self-healing: if backend has null or expired subscription, automatically re-subscribes
+ * and re-links to MongoDB so notifications never get lost.
  */
-export const syncPushSubscription = async (vapidPublicKey?: string): Promise<void> => {
-    if (!isPushSupported()) return;
-    if (Notification.permission !== "granted") return;
+export const syncPushSubscription = async (vapidPublicKey?: string): Promise<boolean> => {
+    if (!isPushSupported()) return false;
+    if (Notification.permission !== "granted") return false;
 
     try {
         const registration = await navigator.serviceWorker.getRegistration("/")
             || await navigator.serviceWorker.ready;
-        if (!registration || !registration.pushManager) return;
+        if (!registration || !registration.pushManager) return false;
 
         let subscription = await registration.pushManager.getSubscription();
+        const serverStatus = await getPushStatusApi();
 
-        // If permission is granted but subscription is missing or was dropped, re-subscribe
-        if (!subscription && vapidPublicKey) {
-            subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-            });
+        // If subscription is missing in browser OR missing on server database, re-subscribe
+        if ((!subscription || !serverStatus.isSubscribed) && vapidPublicKey) {
+            console.log("[PUSH] Subscription missing on server or browser. Self-healing re-subscription...");
+            try {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+                });
+            } catch (subErr) {
+                console.warn("[PUSH] PushManager.subscribe failed during sync:", subErr);
+                return false;
+            }
         }
 
         if (subscription) {
             await savePushSubscription(subscription);
-            console.log("[PUSH] Subscription synced successfully with server.");
+            console.log("[PUSH] ✅ Push subscription self-healed and saved to server.");
+            return true;
         }
+
+        return false;
     } catch (err) {
         console.warn("[PUSH] Auto-sync push subscription failed:", err);
+        return false;
     }
 };
 
