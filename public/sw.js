@@ -1,4 +1,4 @@
-const CACHE_NAME = "pinsta-pwa-v2";
+const CACHE_NAME = "pinsta-pwa-v4";
 const PRECACHE_ASSETS = [
     "/",
     "/index.html",
@@ -6,6 +6,8 @@ const PRECACHE_ASSETS = [
     "/manifest.json",
     "/pwa-192x192.png",
     "/pwa-512x512.png",
+    "/badge-96x96.png",
+    "/badge-72x72.png",
     "/notification.wav"
 ];
 
@@ -20,7 +22,7 @@ self.addEventListener("install", (event) => {
     );
 });
 
-// 2. Service Worker Activation: Clean up stale caches & claim clients
+// 2. Service Worker Activation: Clean up stale caches & claim clients immediately
 self.addEventListener("activate", (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
@@ -89,50 +91,54 @@ self.addEventListener("fetch", (event) => {
     }
 });
 
-// 4. WebPush Notification Handler
+// 4. WebPush Notification Handler — Ultra-fast real-time delivery & status bar badge
 self.addEventListener("push", (event) => {
     if (!event.data) return;
 
     event.waitUntil(
         (async () => {
             try {
-                const data = event.data.json();
-
-                // If the user has this exact chat open and focused in an active window, suppress OS popup banner
-                const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
-                const isChatActivelyOpen = windowClients.some((client) => {
-                    return client.visibilityState === "visible" &&
-                        client.focused &&
-                        data.chatId &&
-                        client.url &&
-                        client.url.includes(`/chats/${data.chatId}`);
-                });
-
-                if (!data.isTest && isChatActivelyOpen) {
-                    return;
+                let data = {};
+                try {
+                    data = event.data.json();
+                } catch {
+                    data = { body: event.data.text() };
                 }
 
-                const tag = data.tag || (data.chatId ? `chat_${data.chatId}` : "general_notification");
+                // If the user currently has this exact chat open and active on screen, don't show OS banner
+                try {
+                    const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+                    const isChatActivelyOpen = windowClients.some((client) => {
+                        return client.visibilityState === "visible" &&
+                            client.focused &&
+                            data.chatId &&
+                            client.url &&
+                            client.url.includes(`/chats/${data.chatId}`);
+                    });
+
+                    if (!data.isTest && isChatActivelyOpen) {
+                        return;
+                    }
+                } catch (e) {
+                    // Fail safe: if window matching fails, proceed to show notification
+                }
+
                 const senderName = data.senderName || "Someone";
                 const newBody = data.body || "You have a new message!";
-                let title = data.title || `New message from ${senderName}`;
-                let messageCount = data.count || 1;
+                const title = data.title || `New message from ${senderName}`;
 
-                // Check for existing notifications with this tag to collapse/aggregate in the OS tray
-                if ("getNotifications" in self.registration && tag) {
-                    const existingNotifications = await self.registration.getNotifications({ tag });
-                    if (existingNotifications && existingNotifications.length > 0) {
-                        const prevNotification = existingNotifications[0];
-                        const prevCount = prevNotification.data?.count || 1;
-                        messageCount = (data.count && data.count > 1) ? data.count : (prevCount + 1);
-                        title = `${senderName} (${messageCount} new messages)`;
-                    }
-                }
+                // Unique tag per message so every message creates a distinct heads-up banner on mobile & desktop
+                const tag = data.tag || `msg_${data.chatId || "pinsta"}_${Date.now()}`;
+
+                // Convert icon and badge to absolute URLs so the Android NotificationManager can always render them
+                const origin = self.location.origin;
+                const iconUrl = new URL(data.icon || "/pwa-192x192.png", origin).href;
+                const badgeUrl = new URL(data.badge || "/badge-96x96.png", origin).href;
 
                 const options = {
                     body: newBody,
-                    icon: data.icon || "/pwa-192x192.png",
-                    badge: data.badge || "/pwa-192x192.png",
+                    icon: iconUrl,
+                    badge: badgeUrl,
                     tag: tag,
                     renotify: true,
                     silent: false,
@@ -140,10 +146,10 @@ self.addEventListener("push", (event) => {
                     data: {
                         url: data.url || (data.chatId ? `/chats/${data.chatId}` : "/"),
                         chatId: data.chatId,
-                        count: messageCount
                     }
                 };
 
+                // Show notification immediately
                 await self.registration.showNotification(title, options);
             } catch (err) {
                 console.error("Error processing push notification in service worker:", err);

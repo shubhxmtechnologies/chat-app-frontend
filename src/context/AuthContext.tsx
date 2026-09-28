@@ -27,6 +27,8 @@ import {
 import { clearChatsCache } from "../api/chat.api";
 
 import { setAccessToken } from "../api/axiosClient";
+import { syncPushSubscription } from "../utils/push.util";
+import { envConfig } from "../config/env";
 
 type AuthStatus =
     | "loading"
@@ -192,6 +194,15 @@ export const AuthProvider = ({
             clearInterval(refreshInterval);
         };
     }, [auth.status]);
+
+    // Automatically sync push subscription with backend whenever user is authenticated
+    useEffect(() => {
+        if (auth.status === "authenticated" && auth.user) {
+            syncPushSubscription(envConfig.VAPID_PUBLIC_KEY).catch((err) => {
+                console.warn("[PUSH] Auto-sync error:", err);
+            });
+        }
+    }, [auth.status, auth.user?.id]);
 
     /*
      * Silent refresh on first load.

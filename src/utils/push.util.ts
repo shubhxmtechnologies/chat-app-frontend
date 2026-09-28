@@ -80,7 +80,7 @@ export const getPushSubscriptionDetails = async (): Promise<PushStatusDetails> =
 
     try {
         if ("serviceWorker" in navigator) {
-            const registration = await navigator.serviceWorker.getRegistration("/sw.js") 
+            const registration = await navigator.serviceWorker.getRegistration("/") 
                 || await navigator.serviceWorker.ready;
             if (registration && registration.pushManager) {
                 subscription = await registration.pushManager.getSubscription();
@@ -141,7 +141,7 @@ export const subscribeUserToPush = async (vapidPublicKey: string): Promise<PushS
         }
 
         // 2. Ensure Service Worker is registered and active
-        let registration = await navigator.serviceWorker.getRegistration("/sw.js");
+        let registration = await navigator.serviceWorker.getRegistration("/");
         if (!registration) {
             registration = await navigator.serviceWorker.register("/sw.js");
         }
@@ -224,7 +224,7 @@ export const subscribeUserToPush = async (vapidPublicKey: string): Promise<PushS
 export const unsubscribeUserFromPush = async (): Promise<{ success: boolean; error?: string }> => {
     try {
         if ("serviceWorker" in navigator) {
-            const registration = await navigator.serviceWorker.getRegistration("/sw.js")
+            const registration = await navigator.serviceWorker.getRegistration("/")
                 || await navigator.serviceWorker.ready;
             if (registration && registration.pushManager) {
                 const subscription = await registration.pushManager.getSubscription();
@@ -246,6 +246,38 @@ export const unsubscribeUserFromPush = async (): Promise<{ success: boolean; err
 };
 
 /**
+ * Automatically sync existing PushSubscription with backend on login or page load.
+ * Ensures backend database always has the active push endpoint even after re-login.
+ */
+export const syncPushSubscription = async (vapidPublicKey?: string): Promise<void> => {
+    if (!isPushSupported()) return;
+    if (Notification.permission !== "granted") return;
+
+    try {
+        const registration = await navigator.serviceWorker.getRegistration("/")
+            || await navigator.serviceWorker.ready;
+        if (!registration || !registration.pushManager) return;
+
+        let subscription = await registration.pushManager.getSubscription();
+
+        // If permission is granted but subscription is missing or was dropped, re-subscribe
+        if (!subscription && vapidPublicKey) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+            });
+        }
+
+        if (subscription) {
+            await savePushSubscription(subscription);
+            console.log("[PUSH] Subscription synced successfully with server.");
+        }
+    } catch (err) {
+        console.warn("[PUSH] Auto-sync push subscription failed:", err);
+    }
+};
+
+/**
  * Trigger a real-time test notification to verify delivery
  */
 export const triggerTestNotification = async (): Promise<{ success: boolean; error?: string }> => {
@@ -259,3 +291,4 @@ export const triggerTestNotification = async (): Promise<{ success: boolean; err
         };
     }
 };
+
